@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LectureEvent v1",
+  "type": "object",
+  "required": ["session_id", "execution_id", "seq", "kind"],
+  "properties": {
+    "session_id": { "type": "string", "minLength": 1 },
+    "execution_id": { "type": "string", "minLength": 1 },
+    "seq": { "type": "integer", "minimum": 0 },
+    "wall_time": { "type": "number" },
+    "kind": {
+      "type": "string",
+      "enum": ["session_start", "session_end", "step", "text", "note", "image",
+               "video", "link", "plot", "inspect", "clear", "error",
+               "terminal", "component", "snapshot"]
+    },
+    "payload": { "type": "object" },
+    "source_location": {
+      "type": "object",
+      "required": ["file", "line"],
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "func": { "type": "string" }
+      }
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+    },
+    "parent_event": { "type": "integer", "minimum": 0 },
+    "schema_version": { "type": "integer", "const": 1 }
+  }
+}

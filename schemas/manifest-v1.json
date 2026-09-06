@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LectureManifest v1",
+  "type": "object",
+  "required": ["format_version", "title", "source_file", "source_sha256"],
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "title": { "type": "string" },
+    "source_file": { "type": "string" },
+    "source_sha256": { "type": "string" },
+    "created": { "type": "number" },
+    "runtime": { "type": "string" },
+    "policy_profile": {
+      "type": "string",
+      "enum": ["static", "local-trusted", "local-restricted", "classroom", "public-untrusted"]
+    },
+    "plugin_ids": { "type": "array", "items": { "type": "string" } }
+  }
+}
