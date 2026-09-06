@@ -1,0 +1,16 @@
+{
+  "name": "lectpy-shell",
+  "private": true,
+  "version": "0.1.0",
+  "description": "lectpy browser shell stub — full TS app lands in v0.2",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vite": "^5.0.0"
+  }
+}

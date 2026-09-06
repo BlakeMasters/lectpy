@@ -1,0 +1,18 @@
+[lecture]
+format-version = 1
+
+[runtimes.python]
+provider = "trace"
+kernel = "python3"
+
+[runtimes.typescript]
+provider = "deno"
+
+[policy.default]
+network = "deny"
+process = "sandbox"
+filesystem-read = ["./assets", "./data"]
+filesystem-write = ["./var"]
+
+[export.static]
+interactive-fallback = "recorded"
