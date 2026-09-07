@@ -132,8 +132,11 @@ class BrokerState:
         artifact_refs: list[str] | None = None,
     ) -> dict[str, Any]:
         sess = self.get_session(sid)
-        if len(sess.log) >= sess.policy.max_events:
-            raise ApiError(429, f"event budget exceeded ({sess.policy.max_events})")
+        # Lifecycle events are exempt: a zero-budget profile (static) must
+        # still open/close; the budget governs content events.
+        if kind not in ("session_start", "session_end"):
+            if len(sess.log) >= sess.policy.max_events:
+                raise ApiError(429, f"event budget exceeded ({sess.policy.max_events})")
         ev = sess.log.append(kind, payload, artifact_refs=artifact_refs or [])
         item = ev.to_dict()
         self.bus.publish(sid, item)

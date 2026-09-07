@@ -22,19 +22,19 @@ def new_token() -> str:
 
 
 def load_or_create_token(explicit: str | None = None, path: str | Path = DEFAULT_TOKEN_PATH) -> str:
-    if explicit:
-        return explicit
-    env = os.environ.get(TOKEN_ENV)
-    if env:
-        return env
+    # Single discovery path: every token (explicit, env, or fresh) is
+    # persisted so operators and the shell read it from one place.
+    token = explicit or os.environ.get(TOKEN_ENV)
     p = Path(path)
-    if p.exists():
-        saved = p.read_text(encoding="utf-8").strip()
-        if saved:
-            return saved
-    token = new_token()
+    if token is None:
+        if p.exists():
+            saved = p.read_text(encoding="utf-8").strip()
+            if saved:
+                return saved
+        token = new_token()
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(token, encoding="utf-8")
+    if not p.exists() or p.read_text(encoding="utf-8").strip() != token:
+        p.write_text(token, encoding="utf-8")
     try:
         os.chmod(p, 0o600)
     except OSError:

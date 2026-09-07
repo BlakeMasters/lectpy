@@ -84,9 +84,18 @@ class _WinptyProc:
             return False
 
     def kill(self) -> None:
+        # pexpect-style API: terminate() first, then kill(sig). Either may
+        # raise once the process is already gone — best effort throughout.
         try:
-            self._proc.kill()
-        except (OSError, EOFError, PermissionError):
+            self._proc.terminate()
+        except Exception:
+            pass
+        try:
+            if self.isalive():
+                import signal
+
+                self._proc.kill(signal.SIGTERM)
+        except Exception:
             pass
 
     def exit_code(self) -> int | None:
@@ -336,8 +345,8 @@ class PtyManager:
         sess = self.get(pty_id)
         try:
             sess._proc.kill()
-        except (OSError, EOFError):
-            pass
+        except Exception:
+            pass  # best effort: the pump observes exit independently
         with sess._lock:
             sess.alive = False
         return sess
