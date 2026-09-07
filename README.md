@@ -11,7 +11,7 @@ from lecture import text, inspect_value
 
 def main():
     text("# Gradient descent")
-    w = 0.0
+    w = 1.0
     inspect_value("w", w)
     for step in range(5):
         w -= 0.1 * (2 * w)

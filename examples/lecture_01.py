@@ -8,7 +8,7 @@ def grad(w: float) -> float:
 
 def main():
     text("# Gradient descent\n\nExecutable narrative: step with `←`/`→`, state stays visible.")
-    w = 0.0  # @inspect w
+    w = 1.0  # @inspect w
     inspect_value("w", w)
     history = []
     for step in range(5):

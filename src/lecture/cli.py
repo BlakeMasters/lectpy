@@ -20,7 +20,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             "from lecture import text, inspect_value, plot\n\n\n"
             "def main():\n"
             '    text("# Hello, lectpy\\nStep through this narrative.")\n'
-            "    w = 0.0\n"
+            "    w = 1.0\n"
             '    inspect_value("w", w)\n'
             "    for _ in range(5):\n"
             "        w -= 0.1 * (2 * w)\n"

@@ -7,7 +7,7 @@ from lecture import text, note, inspect_value, plot
 
 def main():
     text("# Gradient descent\nStepping shows live state.")
-    w = 0.0
+    w = 1.0
     inspect_value("w", w)
     for i in range(5):
         w -= 0.1 * (2 * w)
