@@ -1,0 +1,92 @@
+:root { color-scheme: light dark; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin: 0 auto;
+  max-width: 1100px;
+  padding: 1.5rem;
+  line-height: 1.55;
+}
+.shell { min-height: 100vh; }
+header.top {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  border-bottom: 1px solid #8884;
+  padding-bottom: 0.5rem;
+}
+#stepbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+button {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #888;
+  border-radius: 6px;
+  background: Canvas;
+  color: CanvasText;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid #0969da;
+  outline-offset: 2px;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+}
+#stage {
+  border: 1px solid #8884;
+  border-radius: 8px;
+  padding: 1rem;
+  min-height: 200px;
+}
+pre.code, pre.term {
+  border-radius: 8px;
+  padding: 0.75rem;
+  overflow: auto;
+}
+pre.code { background: #8881; }
+pre.term {
+  background: #111;
+  color: #eee;
+  max-height: 320px;
+}
+.muted { opacity: 0.7; font-size: 0.9em; }
+.pane-title { font-size: 1rem; margin: 0 0 0.5rem; }
+.srcview {
+  border: 1px solid #8884;
+  border-radius: 8px;
+  overflow: auto;
+  font-size: 0.85em;
+}
+.srcline {
+  display: flex;
+  gap: 0.75rem;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 0.5rem;
+  white-space: pre;
+  cursor: pointer;
+}
+.srcline:hover { background: #8882; }
+.srcline.current { background: #0969da33; }
+.srcline.current .lineno { font-weight: bold; }
+.lineno {
+  min-width: 2.5em;
+  text-align: right;
+  opacity: 0.55;
+  user-select: none;
+}
+.srcline code { font-family: ui-monospace, Consolas, monospace; }
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; }
+}
