@@ -1,5 +1,5 @@
-/** lectpy protocol types v1 — mirrors schemas/event-v1.json + manifest-v1.json.
- *  Full shell (renderer/inspector registries, xterm, editor adapter) in v0.2.
+/** lectpy protocol types v1 — mirrors schemas/event-v1.json,
+ *  schemas/manifest-v1.json and schemas/bundle-v1.json.
  */
 
 export const SCHEMA_VERSION = 1 as const;
@@ -35,12 +35,24 @@ export interface LectureManifest {
   plugin_ids?: string[];
 }
 
+/** Author source snapshot for the shell's source pane (bundle v1 `source`). */
+export interface LectureSource {
+  file: string;
+  sha256: string;
+  text: string;
+}
+
 export interface LectureBundle {
   manifest: LectureManifest;
   events: LectureEvent[];
   checkpoint?: Record<string, unknown>;
+  source?: LectureSource | null;
 }
 
+/** Portable renderer contract (v0.2: React components implement it; the
+ *  stable ABI is mount/unmount, never React internals). Untrusted lecture
+ *  components use the sandboxed iframe contract (v0.4), never this registry.
+ */
 export interface RendererPlugin {
   mimeTypes: readonly string[];
   render(output: unknown, mount: HTMLElement): Promise<() => void>;

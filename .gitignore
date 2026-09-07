@@ -9,5 +9,6 @@ build/
 venv/
 node_modules/
 frontend/dist/
+frontend/public/sample/*.json
 .pytest_cache/
 .ruff_cache/
