@@ -87,6 +87,31 @@ pre.term {
   user-select: none;
 }
 .srcline code { font-family: ui-monospace, Consolas, monospace; }
+.livebar {
+  border: 1px solid #8884;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+.liverow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.liverow input {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #888;
+  border-radius: 6px;
+  background: Canvas;
+  color: CanvasText;
+}
+.term-live {
+  margin-top: 0.5rem;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.term-live:empty { display: none; }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; }
 }

@@ -14,6 +14,7 @@ import {
   StepBar,
   stepIndexForLine,
 } from "./components";
+import LivePanel, { readLiveParams } from "./LivePanel";
 import type { LectureBundle, LectureEvent } from "./protocol";
 import {
   ComponentBlock,
@@ -64,6 +65,12 @@ export default function App() {
   const [bundle, setBundle] = useState<LectureBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
+  const [liveLabel, setLiveLabel] = useState<string | null>(null);
+  const liveMode = useMemo(
+    () => new URLSearchParams(window.location.search).get("live") === "1",
+    [],
+  );
+  const liveInitial = useMemo(() => (liveMode ? readLiveParams() : null), [liveMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,8 +177,21 @@ export default function App() {
     <main className="shell">
       <header className="top">
         <h1>{bundle.manifest.title}</h1>
-        <span className="muted">shell · lectpy v0.2 · {bundle.manifest.policy_profile}</span>
+        <span className="muted">
+          shell · lectpy v0.2 · {bundle.manifest.policy_profile}
+          {liveLabel ? ` · ${liveLabel}` : ""}
+        </span>
       </header>
+      {liveMode && liveInitial ? (
+        <LivePanel
+          initial={liveInitial}
+          onLiveBundle={(b, label) => {
+            setBundle(b);
+            setLiveLabel(label);
+            setIdx(parseStepParam(window.location.search, stepEvents(b.events).length));
+          }}
+        />
+      ) : null}
       <StepBar
         idx={idx}
         count={steps.length}
