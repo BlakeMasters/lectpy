@@ -7,7 +7,7 @@ security review / content migration). One protocol across local → Tauri → re
 |---|---|---:|---|---|
 | **v0.1 Protocol & compat core** | Lecture IR, event schemas, artifact IDs, edtrace-compat author layer, scoped context, tracer, CAS, static replay + tests | 3–5 | **in progress (this branch)** | Locking in wrong state model |
 | **v0.2 Browser shell** | TS shell, virtualized source/trace view, keyboard nav + URL routes, inspector & renderer registries | 4–6 | **done (this branch)** | UI scope creep |
-| **v0.3 Runtime broker** | Session supervisor, Jupyter kernels, one-shot processes, PTYs, cancellation, xterm integration | 6–8 | planned | Win PTY/process edge cases; leaks |
+| **v0.3 Runtime broker** | Session supervisor, Jupyter kernels, one-shot processes, PTYs, cancellation, xterm integration | 6–8 | **done (this branch)** | Win PTY/process edge cases; leaks |
 | **v0.4 JS/TS + live components** | Vite/esbuild pipeline, iframe sandbox, Deno/Node adapters, capability bridge | 5–7 | planned | XSS / escape / capability confusion |
 | **v0.5 LSP + objects** | LSP router, virtual URIs/source maps, lazy inspectors, Arrow/binary paths | 4–6 | planned | source/runtime identity mapping |
 | **v0.6 Persistence + collab** | Event log, snapshots, CAS, crash recovery, Yjs/Automerge source collab | 4–6 | planned | migration / long histories |
@@ -48,6 +48,22 @@ v0.7 isolation milestone — never on "containers are probably enough".
       fixed: async-load screenshot timing, source auto-scroll vs
       virtualization chicken-and-egg, preview `--port` flag duplication)
 - [x] Bundle `source` snapshot (`schemas/bundle-v1.json`) feeding the pane
+
+## v0.3 definition of done (delivered)
+
+- [x] `lectured` loopback daemon (`lecture broker`): token auth (persisted,
+      0600), sessions, trace, cancellable jobs, PTY lifecycle, kernels,
+      artifacts over REST; ordered event stream + PTY attach over WS
+- [x] Real ConPTY/openpty backends (no pipe downgrade); process-group
+      termination; output caps; wall-time kills; lifecycle-exempt budgets
+- [x] Jupyter provider over the kernel protocol (execute_result/stream/error
+      mapping, CAS-backed images, interrupt/shutdown) on real kernels
+- [x] Shell live mode (`?live=1`): WS-streamed trace into the stage,
+      xterm attached to broker PTYs, autoconnect demo flow, remote reap
+- [x] 17 daemon API tests + 5 kernel tests + 6 client tests; 73 pytest green
+- [x] Real-browser validation (Playwright + Edge) caught and fixed: CSP
+      missing `ws:` in connect-src, pywinpty str-only write killing attach,
+      stream-convergence count mismatch (now snapshot-marker based)
 
 ## v0.2+ entry criteria
 

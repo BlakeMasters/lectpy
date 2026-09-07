@@ -635,8 +635,8 @@ async def _ws_pty_handler(ws: Any, state: BrokerState) -> None:
                 if mtype == "input" and isinstance(msg.get("data"), str):
                     try:
                         state.ptys.write(pty.id, base64.b64decode(msg["data"]))
-                    except (binascii.Error, NoSuchPty, ValueError):
-                        pass
+                    except Exception:
+                        pass  # malformed frame or dead PTY: keep the socket alive
                 elif mtype == "resize":
                     try:
                         state.ptys.resize(

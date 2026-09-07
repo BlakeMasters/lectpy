@@ -72,7 +72,11 @@ class _WinptyProc:
         return bytes(data)
 
     def write(self, data: bytes) -> None:
-        self._proc.write(data)
+        # pywinpty takes str (Cython rejects bytes); decode at the boundary.
+        try:
+            self._proc.write(data.decode("utf-8", errors="replace"))
+        except (OSError, EOFError):
+            pass
 
     def set_size(self, cols: int, rows: int) -> None:
         self._proc.setwinsize(rows, cols)

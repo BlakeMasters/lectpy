@@ -1,7 +1,7 @@
 {
   "name": "lectpy-shell",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "lectpy browser shell — lecture replay over the versioned event protocol",
   "type": "module",
   "scripts": {

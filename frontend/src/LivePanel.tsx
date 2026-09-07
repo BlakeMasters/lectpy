@@ -119,9 +119,12 @@ export default function LivePanel({
       sessionCfg.current = cfg;
 
       // Attach the event stream BEFORE tracing so nothing is missed, then
-      // build the stage bundle from streamed events (cross-checked against
-      // the synchronous POST response).
+      // build the stage bundle from streamed events. The broker closes each
+      // trace with a `snapshot` marker; its arrival (not raw counts — the
+      // stream also replays session_start) is the convergence signal, with
+      // the synchronous POST response as the timeout fallback.
       const collected: LectureEvent[] = [];
+      let sawSnapshot = false;
       await new Promise<void>((resolve, reject) => {
         const sock = new WebSocket(streamUrl(cfg, ws, sid, -1));
         const timer = window.setTimeout(() => reject(new Error("stream timeout")), 15000);
@@ -130,28 +133,25 @@ export default function LivePanel({
           if (f.type === "event") {
             collected.push(f.event);
             setStreamed(collected.length);
-            if (f.event.kind === "session_end" || f.event.kind === "snapshot") {
-              // snapshot closes a broker trace; keep listening briefly.
-            }
+            if (f.event.kind === "snapshot") sawSnapshot = true;
           }
         };
         sock.onerror = () => reject(new Error("stream socket error"));
         sock.onopen = () => {
           void runTrace(cfg, sid, entry)
             .then((res) => {
-              // Drain: POST returned, stream should converge on its count.
+              // Drain until the broker's snapshot marker or timeout.
               const t0 = Date.now();
               const tick = () => {
-                if (collected.length >= res.events.length || Date.now() - t0 > 8000) {
+                const steps = collected.filter((e) => e.kind === "step").length;
+                if (sawSnapshot || Date.now() - t0 > 8000) {
                   window.clearTimeout(timer);
                   try {
                     sock.close();
                   } catch {
                     /* already gone */
                   }
-                  const useStreamed =
-                    collected.length === res.events.length &&
-                    collected.every((e, i) => e.seq === res.events[i].seq);
+                  const useStreamed = sawSnapshot && steps === res.steps;
                   onLiveBundle(
                     toLiveBundle(`live: ${entry}`, useStreamed ? collected : res.events),
                     useStreamed ? `live · streamed ${collected.length}` : "live · post",

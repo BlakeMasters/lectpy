@@ -178,7 +178,7 @@ export default function App() {
       <header className="top">
         <h1>{bundle.manifest.title}</h1>
         <span className="muted">
-          shell · lectpy v0.2 · {bundle.manifest.policy_profile}
+          shell · lectpy v0.3 · {bundle.manifest.policy_profile}
           {liveLabel ? ` · ${liveLabel}` : ""}
         </span>
       </header>
