@@ -168,6 +168,39 @@ def cmd_test(_args: argparse.Namespace) -> int:
     return r.returncode
 
 
+def cmd_broker(args: argparse.Namespace) -> int:
+    from .broker.auth import load_or_create_token
+    from .broker.server import BrokerServer, ServerConfig
+
+    token_path = args.token_path or ".lecture/broker.token"
+    token = load_or_create_token(args.token, token_path)
+    config = ServerConfig(
+        host=args.host or "127.0.0.1",
+        port=args.port or 7888,
+        token=token,
+        token_path=token_path,
+        artifact_root=args.artifact_dir or ".lecture/artifacts",
+        cwd=args.cwd or ".",
+    )
+    server = BrokerServer(config).start()
+    if config.host not in ("127.0.0.1", "localhost", "::1"):
+        print("WARNING: binding a non-loopback address; put TLS + auth in front.")
+    print(f"lectured {server.url} (ws on :{server.ws_port})")
+    print(f"token: {token_path} (or $LECTPY_TOKEN)")
+    print(f"token value (loopback dev convenience): {token}")
+    print("Ctrl+C to stop; sessions/jobs/ptys/kernels die with the daemon.")
+    try:
+        while True:
+            import time as _time
+
+            _time.sleep(3600)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.stop()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="lecture", description="lectpy lecture toolkit")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -201,6 +234,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("test", help="run the test suite")
     s.set_defaults(func=cmd_test)
+
+    s = sub.add_parser("broker", help="run the loopback capability broker daemon")
+    s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--port", type=int, default=7888)
+    s.add_argument("--token", default=None)
+    s.add_argument("--token-path", default=None)
+    s.add_argument("--artifact-dir", default=None)
+    s.add_argument("--cwd", default=None)
+    s.set_defaults(func=cmd_broker)
     return p
 
 
