@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .lecture/
+.agents/
 var/
 dist/
 build/

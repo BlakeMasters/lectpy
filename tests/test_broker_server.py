@@ -4,6 +4,7 @@ Spins a real loopback daemon on an ephemeral port (module fixture) and
 drives it over HTTP + WebSocket like the shell does. Kernel-backed tests
 live in test_jupyter_provider.py.
 """
+
 import asyncio
 import base64
 import json
@@ -39,9 +40,7 @@ def api(srv, method, path, body=None, token=TOKEN):
 
 
 def api_raw(srv, path, token=TOKEN):
-    req = urllib.request.Request(
-        srv.url + path, headers={"Authorization": f"Bearer {token}"}
-    )
+    req = urllib.request.Request(srv.url + path, headers={"Authorization": f"Bearer {token}"})
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return resp.status, resp.read()
@@ -100,7 +99,12 @@ def test_token_persisted_to_file(srv):
 
 
 def test_session_trace_and_event_poll(srv, session):
-    code, body = api(srv, "POST", f"/v1/sessions/{session}/trace", {"entry": "examples/lecture_01.py"})
+    code, body = api(
+        srv,
+        "POST",
+        f"/v1/sessions/{session}/trace",
+        {"entry": "examples/lecture_01.py"},
+    )
     assert code == 200 and body["steps"] > 0
     code, poll = api(srv, "GET", f"/v1/sessions/{session}/events?after_seq=-1")
     assert code == 200 and len(poll["events"]) > body["steps"]
@@ -213,12 +217,18 @@ def test_ws_stream_replays_then_pushes(srv, session):
 
     async def run():
         received = []
-        async with websockets.connect(_ws_url(srv, f"/v1/sessions/{session}/stream?after_seq=-1")) as ws:
+        async with websockets.connect(
+            _ws_url(srv, f"/v1/sessions/{session}/stream?after_seq=-1")
+        ) as ws:
             hello = json.loads(await asyncio.wait_for(ws.recv(), 10))
             assert hello["type"] == "hello"
             # Trace while attached: replay + live push must both arrive.
             code, _ = await asyncio.to_thread(
-                api, srv, "POST", f"/v1/sessions/{session}/trace", {"entry": "examples/lecture_01.py"}
+                api,
+                srv,
+                "POST",
+                f"/v1/sessions/{session}/trace",
+                {"entry": "examples/lecture_01.py"},
             )
             assert code == 200
             deadline = time.time() + 20

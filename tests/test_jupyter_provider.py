@@ -4,10 +4,10 @@ Skipped without jupyter_client. Kernel start dominates runtime (~10s), so one
 module-scoped kernel serves all cases via the broker REST surface — which
 also exercises the kernels/execute/interrupt routes end to end.
 """
-import time
+
+import json
 import urllib.error
 import urllib.request
-import json
 from pathlib import Path
 
 import pytest
@@ -38,8 +38,13 @@ def api(srv, method, path, body=None):
 def kern(tmp_path_factory):
     root = tmp_path_factory.mktemp("jupyter")
     srv = BrokerServer(
-        ServerConfig(port=0, token=TOKEN, artifact_root=root / "artifacts",
-                     token_path=root / "broker.token", cwd=str(REPO))
+        ServerConfig(
+            port=0,
+            token=TOKEN,
+            artifact_root=root / "artifacts",
+            token_path=root / "broker.token",
+            cwd=str(REPO),
+        )
     ).start()
     code, body = api(srv, "POST", "/v1/sessions", {"policy_profile": "local-trusted"})
     assert code == 200
@@ -53,7 +58,9 @@ def kern(tmp_path_factory):
 def _execute(kern, code_text, timeout=30):
     srv, sid, kid = kern
     code, body = api(
-        srv, "POST", f"/v1/sessions/{sid}/kernels/{kid}/execute",
+        srv,
+        "POST",
+        f"/v1/sessions/{sid}/kernels/{kid}/execute",
         {"code": code_text, "timeout": timeout},
     )
     assert code == 200, body
