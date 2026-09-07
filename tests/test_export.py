@@ -28,7 +28,7 @@ def test_static_bundle_structure_and_csp(tmp_path):
     # Source snapshot embedded for the v0.2 shell's source pane.
     assert bundle["source"] is not None
     assert bundle["source"]["file"] == "lec.py"
-    assert '# Hello' in bundle["source"]["text"]
+    assert "# Hello" in bundle["source"]["text"]
     # Golden property: bundle events replay deterministically.
     assert replay_to_presentation(bundle["events"]) == replay_to_presentation(bundle["events"])
 

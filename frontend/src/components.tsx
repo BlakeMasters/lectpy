@@ -97,10 +97,17 @@ export function SourcePane({
   const [scrollTop, setScrollTop] = useState(0);
   const win = virtualWindow(lines.length, ROW_H, VIEWPORT_H, scrollTop, 8);
 
-  const currentRef = useRef<HTMLDivElement>(null);
+  // Keep the current line rendered AND visible. Imperative scrollTop (not
+  // scrollIntoView) so the target row need not exist in the DOM yet — the
+  // scroll event then re-renders the window around it.
   useEffect(() => {
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    currentRef.current?.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+    if (currentLine == null) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const top = (currentLine - 1) * ROW_H;
+    if (top < el.scrollTop || top + ROW_H > el.scrollTop + VIEWPORT_H) {
+      el.scrollTop = Math.max(0, top - VIEWPORT_H / 2);
+    }
   }, [currentLine]);
 
   return (
@@ -122,7 +129,6 @@ export function SourcePane({
           return (
             <div
               key={line}
-              ref={current ? currentRef : undefined}
               className={current ? "srcline current" : "srcline"}
               role="button"
               tabIndex={0}
