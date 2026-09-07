@@ -25,6 +25,10 @@ def test_static_bundle_structure_and_csp(tmp_path):
     assert "?step=" in html or "?step" in html or "step" in html
     bundle = json.loads((out / "lecture.json").read_text(encoding="utf-8"))
     assert bundle["manifest"]["policy_profile"] == "static"
+    # Source snapshot embedded for the v0.2 shell's source pane.
+    assert bundle["source"] is not None
+    assert bundle["source"]["file"] == "lec.py"
+    assert '# Hello' in bundle["source"]["text"]
     # Golden property: bundle events replay deterministically.
     assert replay_to_presentation(bundle["events"]) == replay_to_presentation(bundle["events"])
 

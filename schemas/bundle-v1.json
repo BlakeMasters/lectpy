@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LectureBundle v1",
+  "type": "object",
+  "required": ["manifest", "events"],
+  "properties": {
+    "manifest": { "$ref": "manifest-v1.json" },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "event-v1.json" }
+    },
+    "checkpoint": { "type": "object" },
+    "source": {
+      "type": ["object", "null"],
+      "required": ["file", "sha256", "text"],
+      "properties": {
+        "file": { "type": "string" },
+        "sha256": { "type": "string" },
+        "text": { "type": "string" }
+      }
+    }
+  }
+}

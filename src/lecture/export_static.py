@@ -54,24 +54,34 @@ function renderOutput(ev){
   if(ev.kind==="video"){return '<video controls src="'+esc(p.src||"")+'"></video>'}
   if(ev.kind==="link"){return '<p><a href="'+esc(p.href||"#")+'">'+esc(p.label||p.href||"")+'</a></p>'}
   if(ev.kind==="plot"){return '<details><summary>Plot (static fallback — spec retained)</summary><pre class="code">'+esc(JSON.stringify(p.spec||{},null,2))+'</pre></details>'}
-  if(ev.kind==="terminal"){return '<pre class="term">'+esc(p.output||p.argv||"")+'</pre>'}
+  if(ev.kind==="terminal"){
+    if(p.output){return '<pre class="term">'+esc(p.output)+'</pre>'}
+    var cmd="$ "+(Array.isArray(p.argv)?p.argv.join(" "):String(p.argv||""));
+    return '<pre class="term">'+esc(cmd)+'</pre><p class="muted">Recorded process block — attach a broker for a live PTY.</p>';
+  }
   if(ev.kind==="component"){return '<div class="muted" role="note">Interactive component <code>'+esc(p.component_type||"")+'</code> — recorded fallback in static mode.</div>'}
   if(ev.kind==="error"){return '<p role="alert"><strong>Error:</strong> '+esc(p.message||"")+'</p>'}
   return ""
 }
 function render(){
-  var upto=idx<0?[]:events.filter(function(e){return e.kind!=="step"&&e.seq<=steps[idx].seq});
   var s=steps[idx];
   var h="";
   if(!s){stage.innerHTML='<p class="muted">No steps recorded.</p>';pos.textContent="0 / 0";return}
+  // The final step owns the tail: outputs of the last source line (and crash
+  // errors) have no later step to attach to, so they join the last step.
+  // Anything at or before a `clear` event is dropped from outputs/inspects.
+  var endSeq=(idx>=steps.length-1)?Infinity:s.seq;
+  var clearSeq=-1,i;
+  for(i=0;i<events.length;i++){if(events[i].kind==="clear"&&events[i].seq<=endSeq&&events[i].seq>clearSeq){clearSeq=events[i].seq}}
+  var upto=events.filter(function(e){return e.kind!=="step"&&e.kind!=="clear"&&e.kind!=="inspect"&&e.kind!=="session_start"&&e.kind!=="session_end"&&e.kind!=="snapshot"&&e.seq<=endSeq&&e.seq>clearSeq});
   var p=s.payload||{};
   var loc=(p.func||"")+" @ line "+(p.line||"?");
-  h+='<p class="muted">'+esc(String(s.session_id)).slice(0,18)+'… · '+esc(loc)+'</p>';
+  h+='<p class="muted">'+esc(loc)+'</p>';
   var locals=p.locals||{};
   var keys=Object.keys(locals);
   if(keys.length){h+='<details open><summary>Environment ('+keys.length+')</summary><pre class="code">'+esc(keys.map(function(k){return k+" = "+locals[k]}).join("\\n"))+'</pre></details>'}
   upto.forEach(function(ev){h+=renderOutput(ev)});
-  var insp=events.filter(function(e){return e.kind==="inspect"&&e.seq<=s.seq}).slice(-8);
+  var insp=events.filter(function(e){return e.kind==="inspect"&&e.seq<=endSeq&&e.seq>clearSeq}).slice(-8);
   if(insp.length){h+='<details><summary>Inspected values</summary><pre class="code">'+esc(insp.map(function(e){return (e.payload.name||"?")+" = "+(e.payload.summary||"")}).join("\\n"))+'</pre></details>'}
   stage.innerHTML=h;
   pos.textContent=(idx+1)+" / "+steps.length;
@@ -127,6 +137,27 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 """
 
 
+def _bundle_source(manifest: LectureManifest) -> dict[str, Any] | None:
+    """Embed author source text for the shell's source pane (v0.2+).
+
+    Static-profile safe: this is authored lecture content, not credentials.
+    Missing/unreadable files yield None; the shell then hides the source pane.
+    """
+    if not manifest.source_file:
+        return None
+    try:
+        text = Path(manifest.source_file).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if len(text.encode("utf-8")) > 2_000_000:  # never bloat the bundle
+        return None
+    return {
+        "file": Path(manifest.source_file).name,
+        "sha256": manifest.source_sha256,
+        "text": text,
+    }
+
+
 def export_static(
     ctx: ExecutionContext,
     manifest: LectureManifest,
@@ -145,6 +176,7 @@ def export_static(
         "checkpoint": (
             checkpoint or Checkpoint(flavor="recorded", event_seq=len(events))
         ).to_dict(),
+        "source": _bundle_source(manifest),
     }
     (out / "lecture.json").write_text(json.dumps(bundle, indent=2), encoding="utf-8")
 
