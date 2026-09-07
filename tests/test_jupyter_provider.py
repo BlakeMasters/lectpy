@@ -35,9 +35,8 @@ def api(srv, method, path, body=None):
 
 
 @pytest.fixture(scope="module")
-def kern():
-    root = REPO / ".tmp-jupyter-test"
-    root.mkdir(exist_ok=True)
+def kern(tmp_path_factory):
+    root = tmp_path_factory.mktemp("jupyter")
     srv = BrokerServer(
         ServerConfig(port=0, token=TOKEN, artifact_root=root / "artifacts",
                      token_path=root / "broker.token", cwd=str(REPO))
