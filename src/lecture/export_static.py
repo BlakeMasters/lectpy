@@ -30,6 +30,13 @@ button:disabled{opacity:.45;cursor:default}
 button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid #0969da;outline-offset:2px}
 #stage{border:1px solid #8884;border-radius:8px;padding:1rem;min-height:200px}
 pre.code{background:#8881;border-radius:8px;padding:.75rem;overflow:auto}
+.lecture-code{margin:1rem 0}.lecture-code figcaption{font-weight:600}
+.lecture-table{overflow:auto;max-height:480px;margin:1rem 0;border:1px solid #8884;border-radius:6px}
+.lecture-table table{border-collapse:collapse;width:100%;text-align:left}
+.lecture-table caption{text-align:left;padding:.75rem;font-weight:600}
+.lecture-table th,.lecture-table td{padding:.5rem .75rem;border-top:1px solid #8884;vertical-align:top;min-width:8ch;max-width:35ch;overflow-wrap:anywhere}
+.lecture-table thead{position:sticky;top:0;background:Canvas}.lecture-table tbody tr:nth-child(even){background:#8881}
+.lecture-table th{white-space:nowrap}
 pre.term{background:#111;color:#eee;border-radius:8px;padding:.75rem;overflow:auto;max-height:320px}
 .muted{opacity:.7;font-size:.9em}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
@@ -96,7 +103,7 @@ document.getElementById("prev").addEventListener("click",function(){go(-1)});
 document.getElementById("next").addEventListener("click",function(){go(1)});
 document.getElementById("over").addEventListener("click",function(){go(1)});
 document.addEventListener("keydown",function(e){
-  if(e.target&&e.target.closest&&e.target.closest('input,textarea,select,button,a,[contenteditable=true],[role=slider]'))return;
+  if(e.target&&e.target.closest&&e.target.closest('input,textarea,select,button,a,[contenteditable=true],[role=slider],.lecture-table,.lecture-code pre'))return;
   if(["ArrowRight","ArrowLeft","Home","End"].indexOf(e.key)>=0)e.preventDefault();
   if(e.key==="ArrowRight"){go(1)}else if(e.key==="ArrowLeft"){go(-1)}
   else if(e.key==="Home"){idx=0;render()}else if(e.key==="End"){idx=Math.max(steps.length-1,0);render()}

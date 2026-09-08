@@ -16,7 +16,7 @@ def main():
           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}})
 ```
 
-Primitives: `text`, `note`, `image`, `video`, `link`, `plot`, `inspect_value`,
+Primitives: `text`, `code`, `table`, `note`, `image`, `video`, `link`, `plot`, `inspect_value`,
 `clear`, `system_text`, `component`, `terminal`. All emit typed events on the
 scoped `ExecutionContext` — never a process-global accumulator.
 
@@ -106,3 +106,40 @@ lecture serve dist/document
 Creation levels: **A** plain Python outputs are supported today. **B** stock
 interactive components and **C** custom component plugins are being developed;
 the current `component()` API records a descriptor and a static placeholder.
+
+## Code and tabular results
+
+```python
+from lecture import code, table
+
+def main():
+    code("loss = (prediction - target) ** 2", language="python", title="Squared error")
+    table(
+        ({"step": i, "loss": 1 / (i + 1)} for i in range(100_000)),
+        columns=["step", "loss"],
+        title="Training history",
+        max_rows=20,
+    )
+```
+
+`code()` displays the source literally; it never executes it. `language` is a
+label, with no syntax-highlighting library required. Long code lines can be
+scrolled with the keyboard after focusing the block.
+
+`table()` accepts an iterable of mappings, infers columns from the visible rows,
+or uses the explicit `columns` order. It reads at most `max_rows + 1` records;
+the extra record determines whether to label the preview as truncated. The
+iterator is advanced by those records, so pass a fresh iterator for later work.
+Missing cells and `None` display as blank. Strings are literal; other values use
+short representations, and long cell text is clipped to 2,000 characters.
+
+The default preview is 100 rows. Limits are 1,000 rows, 100 columns, and 20,000
+cells per table. Use a smaller projection for wide data. This is a static preview,
+not an interactive dataframe grid; unseen rows are not shipped or downloadable.
+Both viewers use native HTML tables with captions, column headers, and focusable
+scroll regions. Table arrow keys scroll the table without changing lecture steps.
+Wide tables scroll horizontally on narrow screens.
+
+These primitives emit compatible v1 text events with HTML plus a textual fallback.
+They need no additional Python packages, browser libraries, or network requests.
+Try `lecture build examples/data_story.py --provider python`.

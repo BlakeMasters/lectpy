@@ -10,7 +10,7 @@ from __future__ import annotations
 import functools
 import inspect as pyinspect
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any
 
 from .context import require_current
@@ -19,6 +19,8 @@ from .sanitize import markdown_to_html
 
 __all__ = [
     "text",
+    "code",
+    "table",
     "note",
     "image",
     "video",
@@ -59,6 +61,26 @@ def _emit(kind: str, payload: dict[str, Any]) -> Event:
 def text(markdown: str) -> Event:
     """Append markdown text (rendered to sanitized HTML at export)."""
     return _emit("text", {"markdown": markdown, "html": markdown_to_html(markdown)})
+
+
+def code(source: str, language: str = "", title: str = "") -> Event:
+    """Display source verbatim with a language label; never execute it."""
+    from .formatting import code_payload
+
+    return _emit("text", code_payload(source, language, title))
+
+
+def table(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    columns: Sequence[str] | None = None,
+    title: str = "Table",
+    max_rows: int = 100,
+) -> Event:
+    """Render a bounded, accessible preview of records (default: first 100 rows)."""
+    from .formatting import table_payload
+
+    return _emit("text", table_payload(rows, columns=columns, title=title, max_rows=max_rows))
 
 
 def note(markdown: str) -> Event:

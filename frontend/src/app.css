@@ -56,6 +56,15 @@ pre.code, pre.term {
   overflow: auto;
 }
 pre.code { background: #8881; }
+.lecture-code { margin: 1rem 0; }
+.lecture-code figcaption { font-weight: 600; }
+.lecture-table { overflow: auto; max-height: 480px; margin: 1rem 0; border: 1px solid #8884; border-radius: 6px; }
+.lecture-table table { border-collapse: collapse; width: 100%; text-align: left; }
+.lecture-table caption { text-align: left; padding: 0.75rem; font-weight: 600; }
+.lecture-table th, .lecture-table td { padding: 0.5rem 0.75rem; border-top: 1px solid #8884; vertical-align: top; min-width: 8ch; max-width: 35ch; overflow-wrap: anywhere; }
+.lecture-table thead { position: sticky; top: 0; background: Canvas; }
+.lecture-table th { white-space: nowrap; }
+.lecture-table tbody tr:nth-child(even) { background: #8881; }
 pre.term {
   background: #111;
   color: #eee;
