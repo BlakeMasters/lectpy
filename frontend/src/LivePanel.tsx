@@ -31,7 +31,7 @@ export default function LivePanel({
   onLiveBundle,
 }: {
   initial: LiveInitial;
-  onLiveBundle: (bundle: LectureBundle, label: string | null) => void;
+  onLiveBundle: (bundle: LectureBundle, label: string | null, cfg: BrokerConfig) => void;
 }) {
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl);
   const [token, setToken] = useState(initial.token);
@@ -137,6 +137,7 @@ export default function LivePanel({
                   onLiveBundle(
                     toLiveBundle(`live: ${entry}`, useStreamed ? collected : res.events),
                     useStreamed ? `live · streamed ${collected.length}` : "live · post",
+                    cfg,
                   );
                   setStatus(`traced ${res.steps} steps (${useStreamed ? "ws" : "post"})`);
                   resolve();

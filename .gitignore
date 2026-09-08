@@ -11,5 +11,6 @@ venv/
 node_modules/
 frontend/dist/
 frontend/public/sample/*.json
+frontend/public/sample/artifacts/
 .pytest_cache/
 .ruff_cache/

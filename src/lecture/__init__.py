@@ -11,6 +11,7 @@ import functools
 import inspect as pyinspect
 import subprocess
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 from .context import require_current
@@ -23,6 +24,7 @@ __all__ = [
     "table",
     "note",
     "image",
+    "asset",
     "video",
     "link",
     "plot",
@@ -54,8 +56,15 @@ def _caller_location() -> SourceLocation | None:
 
 
 def _emit(kind: str, payload: dict[str, Any]) -> Event:
+    from .media import collect_refs
+
     ctx = require_current()
-    return ctx.emit(kind, payload, source_location=_caller_location())
+    return ctx.emit(
+        kind,
+        payload,
+        source_location=_caller_location(),
+        artifact_refs=sorted(collect_refs(payload)),
+    )
 
 
 def text(markdown: str) -> Event:
@@ -87,12 +96,21 @@ def note(markdown: str) -> Event:
     return _emit("note", {"markdown": markdown, "html": markdown_to_html(markdown)})
 
 
-def image(src: str, alt: str = "", title: str = "") -> Event:
-    return _emit("image", {"src": src, "alt": alt, "title": title})
+def asset(source: str | Path | bytes, *, mime: str | None = None) -> str:
+    """Capture a local file/bytes for export, or retain an explicit remote URL."""
+    from .media import capture_asset
+
+    return capture_asset(source, mime=mime)
 
 
-def video(src: str, title: str = "") -> Event:
-    return _emit("video", {"src": src, "title": title})
+def image(
+    src: str | Path | bytes, alt: str = "", title: str = "", *, mime: str | None = None
+) -> Event:
+    return _emit("image", {"src": asset(src, mime=mime), "alt": alt, "title": title})
+
+
+def video(src: str | Path | bytes, title: str = "", *, mime: str | None = None) -> Event:
+    return _emit("video", {"src": asset(src, mime=mime), "title": title})
 
 
 def link(href: str, label: str = "") -> Event:

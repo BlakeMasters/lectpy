@@ -48,6 +48,7 @@ export interface LectureBundle {
   events: LectureEvent[];
   checkpoint?: Record<string, unknown>;
   source?: LectureSource | null;
+  resources?: Record<string, { path: string; mime: string; bytes: number }>;
 }
 
 /** Portable renderer contract (v0.2: React components implement it; the

@@ -170,3 +170,23 @@ The `?view=` URL parameter overrides that default and can be combined with
 `?step=` (`?view=presenter&step=12`). Without a default, a traced lecture opens in
 Inspector and a document without steps opens in Reader. Existing v1 bundles work
 with all three views. Styles change only the viewer projection, never the log.
+# Portable media
+
+`image(path_or_url, alt="…", title="…")` and `video(path_or_url, title="…")`
+capture local files into the artifact store. Relative files resolve beside the
+lecture entry file, not beside the command's current directory. For a helper
+module's own assets, pass `Path(__file__).parent / "assets/diagram.svg"`.
+Explicit HTTP(S), data and blob URLs stay unchanged; remote files are not downloaded.
+Blob URLs are browser-session-local and are not portable exports.
+
+`asset(path_or_bytes, mime=None)` returns a reusable `artifact:sha256:…` URI.
+Bytes require a MIME type, e.g. `image(svg_bytes, mime="image/svg+xml", alt="…")`.
+Use the returned URI in `image`, `video`, `link`, or component props. The exporter
+copies referenced files only, records their MIME types and rewrites URLs to
+bundle-relative paths. Copy the **whole output directory**, not just index.html.
+Large files are captured and exported in chunks; video bytes stay out of event JSON.
+The React viewer resolves assets relative to the fetched lecture.json even when
+the shell lives elsewhere. Live artifact requests use the current broker token.
+
+See [media_story.py](../examples/media_story.py). These are media elements, not a
+video editor; authors remain responsible for captions/transcripts where needed.

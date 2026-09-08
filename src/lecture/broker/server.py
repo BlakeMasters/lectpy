@@ -413,7 +413,7 @@ class Handler(BaseHTTPRequestHandler):
                             )
                         )
                         if e["kind"] == "image" and not e["payload"].get("src"):
-                            e["payload"]["src"] = "/v1/artifacts/" + refs[-1].split(":", 1)[1]
+                            e["payload"]["src"] = "artifact:" + refs[-1]
                     shipped.append(self.state.append(sess.id, e["kind"], e["payload"], refs))
                 return self._send_json(200, {"events": shipped})
             if (

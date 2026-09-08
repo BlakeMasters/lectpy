@@ -31,6 +31,7 @@ button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid 
 #stage{border:1px solid #8884;border-radius:8px;padding:1rem;min-height:200px}
 pre.code{background:#8881;border-radius:8px;padding:.75rem;overflow:auto}
 .lecture-code{margin:1rem 0}.lecture-code figcaption{font-weight:600}
+.lecture-media{margin:1rem 0}.lecture-media img,.lecture-media video{display:block;max-width:100%;height:auto}.lecture-media figcaption{margin-top:.5rem}
 .lecture-table{overflow:auto;max-height:480px;margin:1rem 0;border:1px solid #8884;border-radius:6px}
 .lecture-table table{border-collapse:collapse;width:100%;text-align:left}
 .lecture-table caption{text-align:left;padding:.75rem;font-weight:600}
@@ -73,8 +74,8 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp
 function renderOutput(ev){
   var p=ev.payload||{};
   if(ev.kind==="text"||ev.kind==="note"){return '<div class="out">'+(typeof p.html==="string"?p.html:'<pre>'+esc(p.markdown||"")+'</pre>')+'</div>'}
-  if(ev.kind==="image"){return '<figure><img src="'+esc(p.src||"")+'" alt="'+esc(p.alt||"")+'"><figcaption>'+esc(p.title||"")+'</figcaption></figure>'}
-  if(ev.kind==="video"){return '<video controls src="'+esc(p.src||"")+'"></video>'}
+  if(ev.kind==="image"){return '<figure class="lecture-media"><img loading="lazy" src="'+esc(p.src||"")+'" alt="'+esc(p.alt||"")+'"><figcaption>'+esc(p.title||"")+'</figcaption></figure>'}
+  if(ev.kind==="video"){return '<figure class="lecture-media"><video controls preload="metadata" aria-label="'+esc(p.title||"Video")+'" src="'+esc(p.src||"")+'"></video><figcaption>'+esc(p.title||"")+'</figcaption></figure>'}
   if(ev.kind==="link"){return '<p><a href="'+esc(p.href||"#")+'">'+esc(p.label||p.href||"")+'</a></p>'}
   if(ev.kind==="plot"){return '<details><summary>Plot (static fallback — spec retained)</summary><pre class="code">'+esc(JSON.stringify(p.spec||{},null,2))+'</pre></details>'}
   if(ev.kind==="terminal"){
@@ -155,7 +156,7 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src http: https: data: blob:; media-src http: https: data: blob:; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' http: https: data: blob:; media-src 'self' http: https: data: blob:; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'">
 <title>{html.escape(title)}</title>
 <style>{VIEWER_CSS}</style>
 </head>
@@ -221,20 +222,29 @@ def export_static(
         ).to_dict(),
         "source": _bundle_source(manifest),
     }
-    (out / "lecture.json").write_text(json.dumps(bundle, indent=2), encoding="utf-8")
+    from .media import EXTENSIONS, collect_refs, rewrite_resources
 
-    # Copy referenced blobs (relative links only — no absolute host paths).
-    if ctx.artifacts is not None:
-        for item in events:
-            for ref in item.get("artifact_refs", []):
-                try:
-                    data = ctx.artifacts.get(ref)
-                except (KeyError, ValueError):
-                    continue
-                hexpart = ref.split(":", 1)[1]
-                dest = out / "artifacts" / hexpart
-                if not dest.exists():
-                    dest.write_bytes(data)
+    refs = collect_refs(events)
+    refs.update(ref for event in events for ref in event.get("artifact_refs", []))
+    resources = {}
+    for ref in sorted(refs):
+        if ctx.artifacts is None:
+            raise ValueError(f"cannot export referenced artifact without a store: {ref}")
+        ctx.artifacts.path(ref)  # Missing blobs are errors, not silently broken exports.
+        meta = ctx.artifacts.meta(ref)
+        mime = meta.mime if meta else "application/octet-stream"
+        relative = "artifacts/" + ref.removeprefix("sha256:") + EXTENSIONS.get(mime, ".bin")
+        ctx.artifacts.copy_to(ref, out / relative)
+        resources[ref] = {
+            "path": relative,
+            "mime": mime,
+            "bytes": meta.bytes if meta else (out / relative).stat().st_size,
+        }
+    if resources:
+        bundle["resources"] = resources
+        bundle["events"] = rewrite_resources(events, resources)
+
+    (out / "lecture.json").write_text(json.dumps(bundle, indent=2), encoding="utf-8")
 
     (out / "index.html").write_text(_viewer_html(manifest.title, bundle), encoding="utf-8")
     return out

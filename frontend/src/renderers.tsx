@@ -6,6 +6,7 @@
  */
 import type { LectureEvent } from "./protocol";
 import { isSafeUrl } from "./select";
+import { useResource } from "./resources";
 
 type P = { event: LectureEvent };
 
@@ -33,7 +34,10 @@ export function NoteBlock({ event }: P) {
 
 export function ImageBlock({ event }: P) {
   const p = payload(event);
-  const src = str(p["src"]);
+  const resource = useResource(str(p["src"]));
+  const src = resource.url;
+  if (resource.loading) return <p role="status">Loading image…</p>;
+  if (resource.error) return <p role="alert">{resource.error}</p>;
   if (!isSafeUrl(src, true)) {
     return (
       <p className="muted" role="note">
@@ -42,8 +46,8 @@ export function ImageBlock({ event }: P) {
     );
   }
   return (
-    <figure>
-      <img src={src} alt={str(p["alt"])} title={str(p["title"]) || undefined} />
+    <figure className="lecture-media">
+      <img src={src} loading="lazy" alt={str(p["alt"])} title={str(p["title"]) || undefined} />
       {str(p["title"]) ? <figcaption>{str(p["title"])}</figcaption> : null}
     </figure>
   );
@@ -51,22 +55,30 @@ export function ImageBlock({ event }: P) {
 
 export function VideoBlock({ event }: P) {
   const p = payload(event);
-  const src = str(p["src"]);
-  if (!isSafeUrl(src, true)) {
+  const resource = useResource(str(p["src"]));
+  const src = resource.url;
+  if (resource.loading) return <p role="status">Loading video…</p>;
+  if (resource.error) return <p role="alert">{resource.error}</p>;
+  if (!isSafeUrl(src, true) && !/^data:video\//i.test(src)) {
     return (
       <p className="muted" role="note">
         Blocked video source (policy).
       </p>
     );
   }
-  return <video controls src={src} />;
+  return <figure className="lecture-media"><video controls preload="metadata" src={src}
+    aria-label={str(p["title"]) || "Video"} />
+    {str(p["title"]) && <figcaption>{str(p["title"])}</figcaption>}</figure>;
 }
 
 export function LinkBlock({ event }: P) {
   const p = payload(event);
-  const href = str(p["href"], "#");
+  const resource = useResource(str(p["href"], "#"));
+  const href = resource.url;
   const label = str(p["label"]) || href;
-  if (!isSafeUrl(href)) {
+  if (resource.loading) return <p role="status">Loading {label}…</p>;
+  if (resource.error) return <p role="alert">{resource.error}</p>;
+  if (!isSafeUrl(href) && !href.startsWith("blob:")) {
     return <p className="muted">Blocked link (policy): {label}</p>;
   }
   const external = /^(https?:)?\/\//.test(href);

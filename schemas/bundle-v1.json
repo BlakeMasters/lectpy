@@ -10,6 +10,18 @@
       "items": { "$ref": "event-v1.json" }
     },
     "checkpoint": { "type": "object" },
+    "resources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["path", "mime", "bytes"],
+        "properties": {
+          "path": { "type": "string" },
+          "mime": { "type": "string" },
+          "bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
     "source": {
       "type": ["object", "null"],
       "required": ["file", "sha256", "text"],

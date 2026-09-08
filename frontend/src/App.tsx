@@ -15,6 +15,8 @@ import {
   stepIndexForLine,
 } from "./components";
 import { readLiveParams } from "./liveParams";
+import { ResourceProvider } from "./resources";
+import type { ResourceEnvironment } from "./resources";
 import { displayIndex, parseView, resolveView } from "./views";
 import type { LectureBundle, LectureEvent } from "./protocol";
 import {
@@ -66,6 +68,7 @@ function bundleUrl(): string {
 export default function App() {
   const regs = useMemo(buildRegistries, []);
   const [bundle, setBundle] = useState<LectureBundle | null>(null);
+  const [resourceEnvironment, setResourceEnvironment] = useState<ResourceEnvironment>({});
   const [error, setError] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
   const [requestedView, setRequestedView] = useState(
@@ -88,13 +91,14 @@ export default function App() {
     }
     let cancelled = false;
     fetch(bundleUrl())
-      .then((r) => {
+      .then(async (r) => {
         if (!r.ok) throw new Error(`bundle fetch failed: ${r.status}`);
-        return r.json() as Promise<LectureBundle>;
+        return { bundle: await r.json() as LectureBundle, baseUrl: r.url };
       })
-      .then((b) => {
+      .then(({ bundle: b, baseUrl }) => {
         if (cancelled) return;
         setBundle(b);
+        setResourceEnvironment({ baseUrl, resources: b.resources });
         setIdx(parseStepParam(window.location.search, stepEvents(b.events).length));
       })
       .catch((e: unknown) => {
@@ -229,8 +233,9 @@ export default function App() {
         <Suspense fallback={<p role="status">Loading live tools…</p>}>
           <LivePanel
             initial={liveInitial}
-            onLiveBundle={(b, label) => {
+            onLiveBundle={(b, label, broker) => {
               setBundle(b);
+              setResourceEnvironment({ broker });
               setLiveLabel(label);
               setIdx(parseStepParam(window.location.search, stepEvents(b.events).length));
             }}
@@ -256,7 +261,9 @@ export default function App() {
             <p className="muted">Recorded document</p>
           ))}
           {view === "inspector" && <EnvInspector locals={locals} />}
-          <OutputView outputs={outputs} registry={regs.renderers} />
+          <ResourceProvider environment={resourceEnvironment}>
+            <OutputView outputs={outputs} registry={regs.renderers} />
+          </ResourceProvider>
           {view === "inspector" && <InspectsList inspects={inspects} />}
         </section>
         {bundle.source && view === "inspector" ? (

@@ -135,3 +135,6 @@ pre.term {
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; }
 }
+.lecture-media{margin:1rem 0}
+.lecture-media img,.lecture-media video{display:block;max-width:100%;height:auto}
+.lecture-media figcaption{margin-top:.5rem}
