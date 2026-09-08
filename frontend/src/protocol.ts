@@ -11,6 +11,9 @@ export type EventKind =
 
 export interface SourceLocation { file: string; line: number; func?: string }
 
+/** A trace step's nearest author call site (for example: ref → main:18). */
+export interface TraceReference { file: string; line: number; func?: string }
+
 export interface LectureEvent {
   session_id: string;
   execution_id: string;

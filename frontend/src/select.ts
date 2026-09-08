@@ -8,7 +8,7 @@
  *  - protocol/control events (session_*, snapshot, clear, inspect) never
  *    render as outputs; inspects feed the inspector instead.
  */
-import type { EventKind, LectureEvent } from "./protocol";
+import type { EventKind, LectureEvent, TraceReference } from "./protocol";
 
 export const RENDERABLE_KINDS: readonly EventKind[] = [
   "text", "note", "image", "video", "link", "plot", "terminal", "component", "error",
@@ -148,4 +148,38 @@ export function stepIndexForLine(
     if (ln <= line) return i;
   }
   return 0;
+}
+
+function sourceFileName(value: string): string {
+  return value.replaceAll("\\", "/").split("/").pop() ?? value;
+}
+
+/** Read the optional caller reference emitted by the Python trace provider. */
+export function traceReference(step: LectureEvent | undefined): TraceReference | null {
+  const value = step?.payload?.["ref"];
+  if (!value || typeof value !== "object") return null;
+  const ref = value as Record<string, unknown>;
+  if (typeof ref["file"] !== "string" || typeof ref["line"] !== "number") return null;
+  return {
+    file: ref["file"],
+    line: ref["line"],
+    ...(typeof ref["func"] === "string" ? { func: ref["func"] } : {}),
+  };
+}
+
+/** Find the step at a caller reference, falling back to its source line. */
+export function stepIndexForReference(
+  steps: LectureEvent[],
+  reference: TraceReference,
+): number {
+  const refFile = sourceFileName(reference.file);
+  const exact = steps.findIndex((step) => {
+    const p = step.payload ?? {};
+    const file = typeof p["file"] === "string" ? p["file"] : "";
+    const line = typeof p["line"] === "number" ? p["line"] : -1;
+    const func = typeof p["func"] === "string" ? p["func"] : undefined;
+    return line === reference.line && (!reference.func || func === reference.func)
+      && (!file || file === reference.file || sourceFileName(file) === refFile);
+  });
+  return exact >= 0 ? exact : stepIndexForLine(steps, reference.line);
 }

@@ -6,14 +6,23 @@
  *  source pane. All stepping is keyboard reachable and URL deep-linked.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import {
   EnvInspector,
   InspectsList,
   OutputView,
   SourcePane,
   StepBar,
+  TraceLocation,
   stepIndexForLine,
 } from "./components";
+import {
+  DISPLAY_PRESETS,
+  displayPreset,
+  HIGHLIGHT_COLORS,
+  highlightColor,
+} from "./display";
+import type { DisplayPresetId, HighlightColorId } from "./display";
 import { readLiveParams } from "./liveParams";
 import { ResourceProvider } from "./resources";
 import { WhiteboardSession } from "./Whiteboard";
@@ -36,6 +45,8 @@ import {
   clampStep,
   parseStepParam,
   stepEvents,
+  stepIndexForReference,
+  traceReference,
   visibleInspects,
   visibleOutputs,
 } from "./select";
@@ -75,6 +86,9 @@ export default function App() {
   const [requestedView, setRequestedView] = useState(
     () => parseView(new URLSearchParams(window.location.search).get("view")),
   );
+  const [displayId, setDisplayId] = useState<DisplayPresetId>("system");
+  const [highlightId, setHighlightId] = useState<HighlightColorId>("amber");
+  const [showSource, setShowSource] = useState(false);
   const [liveLabel, setLiveLabel] = useState<string | null>(null);
   const liveMode = useMemo(
     () => new URLSearchParams(window.location.search).get("live") === "1",
@@ -115,6 +129,10 @@ export default function App() {
     [bundle],
   );
   const view = resolveView(requestedView, bundle?.manifest.view, steps.length);
+
+  useEffect(() => {
+    if (view === "reader") setShowSource(false);
+  }, [view]);
 
   function changeView(value: string) {
     const next = parseView(value);
@@ -204,12 +222,24 @@ export default function App() {
   const payload = (s?.payload ?? {}) as Record<string, unknown>;
   const locals = (payload["locals"] ?? {}) as Record<string, string>;
   const currentLine = typeof payload["line"] === "number" ? (payload["line"] as number) : null;
+  const currentFunc = typeof payload["func"] === "string" ? (payload["func"] as string) : null;
+  const reference = traceReference(s);
+  const display = displayPreset(displayId);
+  const currentHighlight = highlightColor(highlightId);
+  const sourceVisible = Boolean(bundle.source && showSource && view !== "reader");
   const shownIdx = displayIndex(view, idx, steps.length);
   const outputs = visibleOutputs(bundle.events, steps, shownIdx);
   const inspects = visibleInspects(bundle.events, steps, shownIdx);
+  const shellStyle = {
+    "--lectpy-body-font": display.bodyFont,
+    "--lectpy-code-font": display.codeFont,
+    "--lectpy-font-scale": display.scale,
+    "--lectpy-line-height": display.lineHeight,
+    "--trace-highlight": currentHighlight,
+  } as CSSProperties;
 
   return (
-    <main className={`shell view-${view}`}>
+    <main className={`shell view-${view}`} style={shellStyle}>
       <header className="top">
         <h1>{bundle.manifest.title}</h1>
         <span className="muted">
@@ -226,6 +256,39 @@ export default function App() {
             <option value="inspector">Inspector</option>
           </select>
         </label>
+        <label>
+          Display{" "}
+          <select
+            value={displayId}
+            onChange={(e) => setDisplayId(e.target.value as DisplayPresetId)}
+          >
+            {DISPLAY_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>{preset.label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Highlight{" "}
+          <select
+            value={highlightId}
+            onChange={(e) => setHighlightId(e.target.value as HighlightColorId)}
+          >
+            {HIGHLIGHT_COLORS.map((color) => (
+              <option key={color.id} value={color.id}>{color.label}</option>
+            ))}
+          </select>
+        </label>
+        {bundle.source ? (
+          <button
+            type="button"
+            className="source-toggle"
+            aria-pressed={showSource}
+            disabled={view === "reader"}
+            onClick={() => setShowSource((visible) => !visible)}
+          >
+            {sourceVisible ? "Hide source" : "Show source"}
+          </button>
+        ) : null}
         <span className="muted" role="status">
           {view === "reader" ? "Final recorded page" : view === "presenter" ? "Presentation with stepping" : "Source and state inspection"}
         </span>
@@ -252,15 +315,24 @@ export default function App() {
         onOver={() => go(idx + 1)}
         onLast={() => go(steps.length - 1)}
       />}
-      <div className={bundle.source && view === "inspector" ? "layout" : "layout document-layout"}>
+      {view !== "reader" ? (
+        <TraceLocation
+          currentFunc={currentFunc}
+          currentLine={currentLine}
+          reference={reference}
+          onSeekReference={(ref) => go(stepIndexForReference(steps, ref))}
+        />
+      ) : null}
+      <div className={sourceVisible ? "layout trace-layout" : "layout document-layout"}>
+        {sourceVisible ? (
+          <SourcePane
+            source={bundle.source!}
+            currentLine={currentLine}
+            highlightColor={currentHighlight}
+            onSeekLine={(line) => go(stepIndexForLine(steps, line))}
+          />
+        ) : null}
         <section id="stage" tabIndex={0} aria-label="Lecture stage">
-          {view === "inspector" && (s ? (
-            <p className="muted">
-              {(payload["func"] as string) ?? ""} @ line {String(payload["line"] ?? "?")}
-            </p>
-          ) : (
-            <p className="muted">Recorded document</p>
-          ))}
           {view === "inspector" && <EnvInspector locals={locals} />}
           <ResourceProvider environment={resourceEnvironment}>
             <WhiteboardSession key={bundle.events[0]?.execution_id ?? "empty"}>
@@ -269,13 +341,6 @@ export default function App() {
           </ResourceProvider>
           {view === "inspector" && <InspectsList inspects={inspects} />}
         </section>
-        {bundle.source && view === "inspector" ? (
-          <SourcePane
-            source={bundle.source}
-            currentLine={currentLine}
-            onSeekLine={(line) => go(stepIndexForLine(steps, line))}
-          />
-        ) : null}
       </div>
       {view === "inspector" && <p className="muted">
         Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via{" "}

@@ -31,6 +31,7 @@ class TraceStep:
     line: int
     func: str
     locals_summary: dict[str, Any] = field(default_factory=dict)
+    reference: dict[str, Any] | None = None
     events_before: int = 0
     events_after: int = 0
 
@@ -142,6 +143,20 @@ class TraceExecutor:
                 or _norm(Path(filename).resolve().__str__()) == target_norm
             )
 
+        def _frame_reference(frame: FrameType) -> dict[str, Any] | None:
+            """Return the nearest author call site for a nested trace frame."""
+            caller = frame.f_back
+            while caller is not None:
+                caller_file = caller.f_code.co_filename
+                if _should_trace_file(caller_file) and caller.f_code.co_name != "<module>":
+                    return {
+                        "file": str(Path(caller_file).resolve()),
+                        "line": int(caller.f_lineno),
+                        "func": caller.f_code.co_name,
+                    }
+                caller = caller.f_back
+            return None
+
         def tracer(frame: FrameType, event: str, arg: Any) -> Any:
             # Only pedagogically-visible source; never trace stdlib/site-packages.
             filename = frame.f_code.co_filename
@@ -250,10 +265,20 @@ class TraceExecutor:
             except Exception:
                 pass
 
+            reference = _frame_reference(frame)
+            step_payload: dict[str, Any] = {
+                "file": filename,
+                "line": lineno,
+                "func": func,
+                "locals": locals_summary,
+            }
+            if reference is not None and reference["func"] != func:
+                step_payload["ref"] = reference
+
             seq_before = len(ctx.log)
             ctx.emit(
                 "step",
-                {"file": filename, "line": lineno, "func": func, "locals": locals_summary},
+                step_payload,
                 line=lineno,
                 func=func,
             )
@@ -287,6 +312,7 @@ class TraceExecutor:
                     line=lineno,
                     func=func,
                     locals_summary=locals_summary,
+                    reference=reference,
                     events_before=seq_before,
                     events_after=len(ctx.log),
                 )

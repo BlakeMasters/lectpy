@@ -6,7 +6,17 @@ body {
   padding: 1.5rem;
   line-height: 1.55;
 }
-.shell { min-height: 100vh; }
+.shell {
+  --lectpy-body-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --lectpy-code-font: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --lectpy-font-scale: 1;
+  --lectpy-line-height: 1.55;
+  min-height: 100vh;
+  font-family: var(--lectpy-body-font);
+  font-size: calc(1rem * var(--lectpy-font-scale));
+  line-height: var(--lectpy-line-height);
+}
+.shell code, .shell pre, .srcline code { font-family: var(--lectpy-code-font); }
 header.top {
   display: flex;
   flex-wrap: wrap;
@@ -41,10 +51,33 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   gap: 1rem;
   align-items: start;
 }
+.trace-layout { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
 .document-layout { grid-template-columns: minmax(0, 1fr); }
 .viewbar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin: 1rem 0; }
 .viewbar select { font: inherit; color: CanvasText; background: Canvas; border: 1px solid #888; border-radius: 6px; padding: 0.35rem 0.5rem; }
 .viewbar select:focus-visible { outline: 3px solid #0969da; outline-offset: 2px; }
+.viewbar label { display: inline-flex; gap: 0.35rem; align-items: center; }
+.source-toggle[aria-pressed="true"] { border-color: var(--trace-highlight, #d97706); box-shadow: inset 0 -2px 0 var(--trace-highlight, #d97706); }
+.trace-location {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+  font-family: var(--lectpy-code-font);
+  font-size: 0.88em;
+}
+.trace-location-current { opacity: 0.7; }
+.trace-reference {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  color: CanvasText;
+  background: color-mix(in srgb, var(--trace-highlight, #d97706) 14%, Canvas);
+  font-family: inherit;
+  font-size: 0.95em;
+}
+.trace-reference:hover { background: color-mix(in srgb, var(--trace-highlight, #d97706) 24%, Canvas); }
 .view-reader #stage { border: 0; padding: 0; }
 .view-presenter #stage { font-size: 1.35rem; min-height: 60vh; padding: 1.5rem; }
 @media (max-width: 600px) {
@@ -98,15 +131,17 @@ pre.term {
   cursor: pointer;
 }
 .srcline:hover { background: #8882; }
-.srcline.current { background: #0969da33; }
-.srcline.current .lineno { font-weight: bold; }
+.srcline.current {
+  background: color-mix(in srgb, var(--trace-highlight, #d97706) 14%, Canvas);
+  box-shadow: inset 3px 0 0 var(--trace-highlight, #d97706);
+}
+.srcline.current .lineno { font-weight: bold; color: var(--trace-highlight, #d97706); }
 .lineno {
   min-width: 2.5em;
   text-align: right;
   opacity: 0.55;
   user-select: none;
 }
-.srcline code { font-family: ui-monospace, Consolas, monospace; }
 .livebar {
   border: 1px solid #8884;
   border-radius: 8px;

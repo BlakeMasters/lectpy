@@ -8,6 +8,8 @@ import {
   parseStepParam,
   stepEvents,
   stepIndexForLine,
+  stepIndexForReference,
+  traceReference,
   virtualWindow,
   visibleInspects,
   visibleOutputs,
@@ -155,5 +157,17 @@ describe("source-line seeking", () => {
   });
   it("falls back to the nearest earlier step past the end", () => {
     expect(stepIndexForLine(steps, 99)).toBe(3);
+  });
+
+  it("reads and seeks a nested caller reference", () => {
+    const nested = ev(13, "step", {
+      file: "/tmp/lecture.py",
+      line: 22,
+      func: "helper",
+      ref: { file: "/tmp/lecture.py", line: 12, func: "main" },
+    });
+    const reference = traceReference(nested);
+    expect(reference).toEqual({ file: "/tmp/lecture.py", line: 12, func: "main" });
+    expect(stepIndexForReference([...steps, nested], reference!)).toBe(2);
   });
 });

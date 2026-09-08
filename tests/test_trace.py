@@ -118,6 +118,34 @@ def test_trace_step_over_decorator_collapses(tmp_path):
     assert "inner" not in funcs
 
 
+def test_trace_step_records_nested_call_reference(tmp_path):
+    src = _write(
+        tmp_path,
+        "references.py",
+        """
+        def helper():
+            value = 1
+            value += 1
+
+        def main():
+            helper()
+        """,
+    )
+    ctx = TraceExecutor(policy=default_policy("local-trusted")).trace_file(src)
+    nested = [
+        e
+        for e in ctx.log.subscribe()
+        if e.kind == "step" and e.payload.get("func") == "helper"
+    ]
+    assert nested
+    reference = nested[0].payload.get("ref")
+    assert reference == {
+        "file": str(src.resolve()),
+        "line": 7,
+        "func": "main",
+    }
+
+
 def test_examples_trace_cleanly():
     from pathlib import Path
 

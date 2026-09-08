@@ -1,6 +1,7 @@
 /** Shell chrome: step bar, inspectors, virtualized source pane, output view. */
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { LectureEvent, LectureSource } from "./protocol";
+import type { CSSProperties } from "react";
+import type { LectureEvent, LectureSource, TraceReference } from "./protocol";
 import { RendererRegistry } from "./registry";
 import { stepIndexForLine, virtualWindow } from "./select";
 
@@ -80,16 +81,49 @@ export function InspectsList({ inspects }: { inspects: LectureEvent[] }) {
   );
 }
 
+export function TraceLocation({
+  currentFunc,
+  currentLine,
+  reference,
+  onSeekReference,
+}: {
+  currentFunc: string | null;
+  currentLine: number | null;
+  reference: TraceReference | null;
+  onSeekReference: (reference: TraceReference) => void;
+}) {
+  if (currentLine == null && !reference) return null;
+  return (
+    <div className="trace-location" aria-label="Current trace location">
+      <span className="trace-location-current">
+        {(currentFunc || "main")} · line {currentLine ?? "?"}
+      </span>
+      {reference ? (
+        <button
+          type="button"
+          className="trace-reference"
+          onClick={() => onSeekReference(reference)}
+          title={`Jump to ${reference.file}:${reference.line}`}
+        >
+          ref → {reference.func || "caller"}:{reference.line}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 const ROW_H = 22;
 const VIEWPORT_H = 330;
 
 export function SourcePane({
   source,
   currentLine,
+  highlightColor,
   onSeekLine,
 }: {
   source: LectureSource;
   currentLine: number | null;
+  highlightColor: string;
   onSeekLine: (line: number) => void;
 }) {
   const lines = useMemo(() => source.text.split("\n"), [source.text]);
@@ -111,7 +145,10 @@ export function SourcePane({
   }, [currentLine]);
 
   return (
-    <section aria-label={`Source: ${source.file}`}>
+    <section
+      aria-label={`Source: ${source.file}`}
+      style={{ "--trace-highlight": highlightColor } as CSSProperties}
+    >
       <h2 className="pane-title">Source · {source.file}</h2>
       <div
         ref={scrollRef}

@@ -21,14 +21,24 @@ from .context import ExecutionContext
 from .ir import Checkpoint, LectureManifest
 
 VIEWER_CSS = """
-:root{color-scheme:light dark}
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0 auto;max-width:900px;padding:1.5rem;line-height:1.55}
+:root{color-scheme:light dark;--lectpy-body-font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;--lectpy-code-font:ui-monospace,SFMono-Regular,Consolas,monospace;--lectpy-font-scale:1;--lectpy-line-height:1.55;--trace-highlight:#d97706}
+body{font-family:var(--lectpy-body-font);font-size:calc(1rem * var(--lectpy-font-scale));margin:0 auto;max-width:1100px;padding:1.5rem;line-height:var(--lectpy-line-height)}
+body[data-display=technical]{--lectpy-line-height:1.45}body[data-display=reading]{--lectpy-line-height:1.7}
+code,pre,.source-line code{font-family:var(--lectpy-code-font)}
 header.top{display:flex;flex-wrap:wrap;gap:1rem;align-items:baseline;border-bottom:1px solid #8884;padding-bottom:.5rem}
 #stepbar{display:flex;gap:.5rem;align-items:center;margin:1rem 0;flex-wrap:wrap}
 button{padding:.4rem .8rem;border:1px solid #888;border-radius:6px;background:Canvas;color:CanvasText;cursor:pointer}
 button:disabled{opacity:.45;cursor:default}
 button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid #0969da;outline-offset:2px}
+#trace-layout{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:1rem;align-items:start}
+#trace-layout:not(.trace-open){display:block}
 #stage{border:1px solid #8884;border-radius:8px;padding:1rem;min-height:200px}
+#source-panel{min-width:0}#source-panel[hidden]{display:none}
+.source-title{font-size:1rem;margin:.1rem 0 .5rem}.source-scroll{border:1px solid #8884;border-radius:8px;overflow:auto;height:60vh;font-size:.88em;background:Canvas}
+.source-line{display:flex;gap:.7rem;min-height:1.55em;line-height:1.55em;padding:0 .5rem;white-space:pre;cursor:pointer}.source-line:hover{background:#8882}
+.source-line.current{background:color-mix(in srgb,var(--trace-highlight) 14%,Canvas);box-shadow:inset 3px 0 0 var(--trace-highlight)}.source-line.current .source-lineno{font-weight:700;color:var(--trace-highlight)}
+.source-lineno{min-width:3em;text-align:right;opacity:.55;user-select:none}
+.trace-location{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.75rem 0;font-family:var(--lectpy-code-font);font-size:.88em}.trace-location-current{opacity:.7}.trace-reference{border:0;border-radius:999px;padding:.2rem .55rem;color:CanvasText;background:color-mix(in srgb,var(--trace-highlight) 14%,Canvas);font-family:inherit;font-size:.95em}.trace-reference:hover{background:color-mix(in srgb,var(--trace-highlight) 24%,Canvas)}
 pre.code{background:#8881;border-radius:8px;padding:.75rem;overflow:auto}
 .lecture-code{margin:1rem 0}.lecture-code figcaption{font-weight:600}
 .lecture-media{margin:1rem 0}.lecture-media img,.lecture-media video{display:block;max-width:100%;height:auto}.lecture-media figcaption{margin-top:.5rem}
@@ -48,6 +58,7 @@ body[data-view=reader] #stepbar{display:none}
 body[data-view=reader] #stage{border:0;padding:0}
 body[data-view=presenter] #stage{font-size:1.35rem;min-height:60vh;padding:1.5rem}
 body:not([data-view=inspector]) #help{display:none}
+@media(max-width:900px){#trace-layout{grid-template-columns:1fr}}
 @media(max-width:600px){body{padding:1rem}body[data-view=presenter] #stage{font-size:1.1rem;padding:1rem}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 """
@@ -69,12 +80,61 @@ function resolveView(value){
 var view=resolveView(params.get("view"));
 var idx=Math.min(Math.max(parseInt(params.get("step")||"0",10)||0,0),Math.max(steps.length-1,0));
 var stage=document.getElementById("stage");
+var layout=document.getElementById("trace-layout");
+var sourcePanel=document.getElementById("source-panel");
+var traceLocation=document.getElementById("trace-location");
+var sourceToggle=document.getElementById("source-toggle");
+var displayMode=document.getElementById("display-mode");
+var highlightMode=document.getElementById("highlight-mode");
+var showSource=false;
 var pos=document.getElementById("pos");
 var meta=document.getElementById("meta");
 var boardStates=new Map(),boardDisposers=[];
 var browserController=typeof BrowserWindowController==="function"?new BrowserWindowController():null;
 function safeBrowserUrl(value){try{var u=new URL(String(value||""));return u.protocol==="http:"||u.protocol==="https:"?u.href:""}catch(e){return ""}}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function sourceFileName(value){return String(value||"").replace(/\\\\/g,"/").split("/").pop()||String(value||"")}
+function traceReference(step){var ref=step&&step.payload&&step.payload.ref;if(!ref||typeof ref!=="object"||typeof ref.file!=="string"||typeof ref.line!=="number")return null;return ref}
+function stepIndexForLine(line){var i,p;for(i=0;i<steps.length;i++){p=steps[i].payload||{};if(Number(p.line)>=line)return i}for(i=steps.length-1;i>=0;i--){p=steps[i].payload||{};if(Number(p.line)<=line)return i}return 0}
+function stepIndexForReference(ref){var i,p,file;for(i=0;i<steps.length;i++){p=steps[i].payload||{};file=String(p.file||"");if(Number(p.line)===Number(ref.line)&&(!ref.func||p.func===ref.func)&&(!file||file===ref.file||sourceFileName(file)===sourceFileName(ref.file)))return i}return stepIndexForLine(Number(ref.line))}
+function highlightValue(){return {amber:"#d97706",blue:"#2563eb",mint:"#0f766e",violet:"#7c3aed"}[highlightMode.value]||"#d97706"}
+function applyDisplay(){
+  var presets={
+    system:{body:"system-ui,-apple-system,Segoe UI,Roboto,sans-serif",code:"ui-monospace,SFMono-Regular,Consolas,monospace",scale:"1",line:"1.55"},
+    technical:{body:"Segoe UI,system-ui,sans-serif",code:"Cascadia Code,SFMono-Regular,Consolas,monospace",scale:".96",line:"1.45"},
+    reading:{body:"Georgia,Times New Roman,serif",code:"ui-monospace,SFMono-Regular,Consolas,monospace",scale:"1.05",line:"1.7"}
+  };
+  var preset=presets[displayMode.value]||presets.system,root=document.documentElement.style;
+  document.body.dataset.display=displayMode.value;
+  root.setProperty("--lectpy-body-font",preset.body);
+  root.setProperty("--lectpy-code-font",preset.code);
+  root.setProperty("--lectpy-font-scale",preset.scale);
+  root.setProperty("--lectpy-line-height",preset.line);
+  root.setProperty("--trace-highlight",highlightValue());
+}
+function renderTraceLocation(step){
+  if(view==="reader"||!step){traceLocation.innerHTML="";return}
+  var p=step.payload||{},ref=traceReference(step),html='<span class="trace-location-current">'+esc(p.func||"main")+' · line '+esc(p.line||"?")+'</span>';
+  if(ref)html+='<button type="button" class="trace-reference" data-ref-line="'+esc(ref.line)+'" title="Jump to '+esc(ref.file)+':'+esc(ref.line)+'">ref → '+esc(ref.func||"caller")+':'+esc(ref.line)+'</button>';
+  traceLocation.innerHTML=html;
+  var button=traceLocation.querySelector("[data-ref-line]");
+  if(button&&ref)button.addEventListener("click",function(){idx=stepIndexForReference(ref);render()})
+}
+function renderSource(step){
+  if(!bundle.source||!showSource||view==="reader"){sourcePanel.hidden=true;layout.classList.remove("trace-open");return}
+  sourcePanel.hidden=false;layout.classList.add("trace-open");
+  var scrollBox=sourcePanel.querySelector(".source-scroll");
+  if(!scrollBox){
+    var lines=bundle.source.text.split("\\n"),html='<h2 class="source-title">Source · '+esc(bundle.source.file)+'</h2><div class="source-scroll" role="log" aria-label="Lecture source">';
+    lines.forEach(function(line,i){var number=i+1;html+='<div class="source-line" data-source-line="'+number+'" role="button" tabindex="0" aria-current="false"><span class="source-lineno">'+number+'</span><code>'+esc(line||" ")+'</code></div>'});
+    sourcePanel.innerHTML=html+"</div>";
+    scrollBox=sourcePanel.querySelector(".source-scroll");
+    sourcePanel.querySelectorAll("[data-source-line]").forEach(function(row){var line=Number(row.getAttribute("data-source-line"));row.addEventListener("click",function(){idx=stepIndexForLine(line);render()});row.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();idx=stepIndexForLine(line);render()}})})
+  }
+  var current=Number(step&&step.payload&&step.payload.line)||-1,active=null;
+  sourcePanel.querySelectorAll("[data-source-line]").forEach(function(row){var isCurrent=Number(row.getAttribute("data-source-line"))===current;row.classList.toggle("current",isCurrent);row.setAttribute("aria-current",isCurrent?"true":"false");if(isCurrent)active=row});
+  if(scrollBox&&active){var activeTop=active.offsetTop-scrollBox.offsetTop;scrollBox.scrollTop=Math.max(0,activeTop-(scrollBox.clientHeight-active.offsetHeight)/2)}
+}
 function renderOutput(ev){
   var p=ev.payload||{};
   if(ev.kind==="text"||ev.kind==="note"){return '<div class="out">'+(typeof p.html==="string"?p.html:'<pre>'+esc(p.markdown||"")+'</pre>')+'</div>'}
@@ -101,7 +161,14 @@ function renderOutput(ev){
 }
 function render(){
   document.body.dataset.view=view;
+  if(view==="reader")showSource=false;
   document.getElementById("view-mode").value=view;
+  sourceToggle.disabled=!bundle.source||view==="reader";
+  sourceToggle.textContent=showSource?"Hide source":"Show source";
+  sourceToggle.setAttribute("aria-pressed",showSource?"true":"false");
+  applyDisplay();
+  renderTraceLocation(steps[idx]);
+  renderSource(steps[idx]);
   document.getElementById("view-status").textContent=view==="reader"?"Final recorded page":view==="presenter"?"Presentation with stepping":"State inspection";
   var s=steps[idx];
   var h="";
@@ -165,6 +232,9 @@ document.getElementById("view-mode").addEventListener("change",function(e){
   try{var u=new URL(location.href);u.searchParams.set("view",view);history.replaceState(null,"",u)}catch(error){}
   render();
 });
+sourceToggle.addEventListener("click",function(){showSource=!showSource;render()});
+displayMode.addEventListener("change",function(){applyDisplay()});
+highlightMode.addEventListener("change",function(){applyDisplay();render()});
 window.addEventListener("popstate",function(){
   var p=new URLSearchParams(location.search);
   idx=Math.min(Math.max(parseInt(p.get("step")||"0",10)||0,0),Math.max(steps.length-1,0));
@@ -228,6 +298,11 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <header class="top"><h1>{html.escape(title)}</h1><span class="muted">static replay · lectpy v0.3</span></header>
 <div class="viewbar"><label for="view-mode">View</label>
 <select id="view-mode"><option value="reader">Reader</option><option value="presenter">Presenter</option><option value="inspector">Inspector</option></select>
+<label for="display-mode">Display</label>
+<select id="display-mode"><option value="system">System</option><option value="technical">Technical</option><option value="reading">Reading</option></select>
+<label for="highlight-mode">Highlight</label>
+<select id="highlight-mode"><option value="amber">Amber</option><option value="blue">Blue</option><option value="mint">Mint</option><option value="violet">Violet</option></select>
+<button id="source-toggle" type="button" aria-pressed="false">Show source</button>
 <span id="view-status" class="muted" role="status"></span></div>
 <div id="stepbar" role="toolbar" aria-label="Lecture stepping">
 <button id="prev" aria-label="Previous step">← Back</button>
@@ -236,7 +311,11 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <span id="pos" aria-live="off"></span>
 <span id="meta" class="muted" role="status" aria-live="polite"></span>
 </div>
+<div id="trace-location" aria-live="polite"></div>
+<div id="trace-layout">
+<section id="source-panel" hidden aria-label="Lecture source"></section>
 <main id="stage" tabindex="0" aria-label="Lecture stage"></main>
+</div>
 <p id="help" class="muted">Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via <code>?step=N</code>. Reduced-motion respected. Plots/components show recorded fallbacks.</p>
 <script id="lecture-data" type="application/json">{embedded}</script>
 <script{script_type}>{viewer}</script>
