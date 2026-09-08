@@ -70,6 +70,7 @@ var idx=Math.min(Math.max(parseInt(params.get("step")||"0",10)||0,0),Math.max(st
 var stage=document.getElementById("stage");
 var pos=document.getElementById("pos");
 var meta=document.getElementById("meta");
+var boardStates=new Map(),boardDisposers=[];
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function renderOutput(ev){
   var p=ev.payload||{};
@@ -83,7 +84,10 @@ function renderOutput(ev){
     var cmd="$ "+(Array.isArray(p.argv)?p.argv.join(" "):String(p.argv||""));
     return '<pre class="term">'+esc(cmd)+'</pre><p class="muted">Recorded process block — attach a broker for a live PTY.</p>';
   }
-  if(ev.kind==="component"){return '<div class="muted" role="note">Interactive component <code>'+esc(p.component_type||"")+'</code> — recorded fallback in static mode.</div>'}
+  if(ev.kind==="component"){
+    if(p.component_type==="whiteboard")return '<div data-whiteboard="'+ev.seq+'"></div>';
+    return '<div class="muted" role="note">Interactive component <code>'+esc(p.component_type||"")+'</code> — recorded fallback in static mode.</div>'
+  }
   if(ev.kind==="error"){return '<p role="alert"><strong>Error:</strong> '+esc(p.message||"")+'</p>'}
   return ""
 }
@@ -109,7 +113,21 @@ function render(){
   upto.forEach(function(ev){h+=renderOutput(ev)});
   var insp=events.filter(function(e){return e.kind==="inspect"&&e.seq<=endSeq&&e.seq>clearSeq}).slice(-8);
   if(insp.length&&view==="inspector"){h+='<details><summary>Inspected values</summary><pre class="code">'+esc(insp.map(function(e){return (e.payload.name||"?")+" = "+(e.payload.summary||"")}).join("\\n"))+'</pre></details>'}
+  boardDisposers.forEach(function(dispose){dispose()});boardDisposers=[];
   stage.innerHTML=h||'<p class="muted">No content recorded.</p>';
+  upto.forEach(function(ev){
+    if(ev.kind!=="component"||(ev.payload||{}).component_type!=="whiteboard")return;
+    var host=stage.querySelector('[data-whiteboard="'+ev.seq+'"]'),props=ev.payload.props||{};
+    var state=boardStates.get(ev.seq)||{};boardStates.set(ev.seq,state);
+    function mount(){
+      host.replaceChildren();
+      try{boardDisposers.push(mountWhiteboard(host,props,state))}catch(error){host.textContent="Whiteboard could not open: "+error.message}
+    }
+    if(state.open){mount()}else{
+      var button=document.createElement("button");button.textContent="Open "+(props.title||"whiteboard");
+      button.addEventListener("click",function(){state.open=true;mount()});host.append(button);
+    }
+  });
   pos.textContent=steps.length?(idx+1)+" / "+steps.length:"Document";
   document.getElementById("prev").disabled=idx<=0;
   document.getElementById("next").disabled=idx>=steps.length-1;
@@ -151,6 +169,21 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
     # and become executable markup, so escape it for the HTML context. The
     # JSON parser still sees the same string after `\/` → `/` unescaping.
     embedded = json.dumps(bundle).replace("</", "<\\/").replace("<!--", "<\\!--")
+    has_whiteboard = any(
+        event.get("kind") == "component"
+        and event.get("payload", {}).get("component_type") == "whiteboard"
+        for event in bundle.get("events", [])
+    )
+    viewer = VIEWER_JS
+    script_type = ""
+    if has_whiteboard:
+        # Inline ESM has no external requests and works from file:// as well.
+        viewer = (
+            (Path(__file__).parent / "static" / "whiteboard.js").read_text(encoding="utf-8")
+            + "\n"
+            + viewer
+        )
+        script_type = ' type="module"'
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -175,7 +208,7 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <main id="stage" tabindex="0" aria-label="Lecture stage"></main>
 <p id="help" class="muted">Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via <code>?step=N</code>. Reduced-motion respected. Plots/components show recorded fallbacks.</p>
 <script id="lecture-data" type="application/json">{embedded}</script>
-<script>{VIEWER_JS}</script>
+<script{script_type}>{viewer}</script>
 </body>
 </html>
 """

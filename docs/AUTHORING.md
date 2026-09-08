@@ -17,7 +17,7 @@ def main():
 ```
 
 Primitives: `text`, `code`, `table`, `note`, `image`, `video`, `link`, `plot`, `inspect_value`,
-`clear`, `system_text`, `component`, `terminal`. All emit typed events on the
+`clear`, `system_text`, `component`, `whiteboard`, `terminal`. All emit typed events on the
 scoped `ExecutionContext` — never a process-global accumulator.
 
 Directives (edtrace-compatible, plus structured API):
@@ -170,7 +170,8 @@ The `?view=` URL parameter overrides that default and can be combined with
 `?step=` (`?view=presenter&step=12`). Without a default, a traced lecture opens in
 Inspector and a document without steps opens in Reader. Existing v1 bundles work
 with all three views. Styles change only the viewer projection, never the log.
-# Portable media
+
+## Portable media
 
 `image(path_or_url, alt="…", title="…")` and `video(path_or_url, title="…")`
 capture local files into the artifact store. Relative files resolve beside the
@@ -190,3 +191,48 @@ the shell lives elsewhere. Live artifact requests use the current broker token.
 
 See [media_story.py](../examples/media_story.py). These are media elements, not a
 video editor; authors remain responsible for captions/transcripts where needed.
+
+## Whiteboards
+
+```python
+from lecture import whiteboard
+
+def main():
+    whiteboard("Derivation board", width=1200, height=675, background="grid")
+```
+
+This emits a stock v1 component with an **Open Derivation board** button. It works
+in reader, presenter and inspector views, including self-contained static HTML.
+The React drawing module loads on first open; static exports only
+include the engine when a whiteboard is present. No drawing library or extra
+Python dependency is required. See [whiteboard.py](../examples/whiteboard.py).
+
+Tools include pressure-sensitive pen, translucent highlighter, whole-stroke
+eraser, line, arrow, rectangle, ellipse, text, color/size controls, blank/grid/dot
+paper, undo/redo, reversible clear, and full screen. Text is plain text, not TeX.
+Native labels and keyboard controls are provided. **Add text at center** supports
+keyboard-only annotations; **Board text alternative** lists text and summaries of
+the latest 100 objects. Freehand sketches still need an author-provided equivalent
+description when they convey essential information.
+
+Pair a Bluetooth pen with the operating system. The board uses standard browser
+[Pointer Events](https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events),
+not Web Bluetooth: it supports devices that the OS/browser exposes as pen or mouse
+input. Pressure and the hardware eraser depend on that device/driver mapping.
+Touch is ignored by default to reduce palm marks; uncheck the option for finger
+drawing. This is not device-level palm rejection. A Bluetooth presentation remote
+that only sends buttons cannot supply handwriting coordinates.
+
+Drawings, undo history, and tool settings survive stepping away and back, changing
+views, and closing/reopening a board. They are **local viewer annotations**, not
+new Python events, shared live state, or an autosaved recording. Reloading loses
+unsaved drawings. **Save drawing** exports editable JSON; **Load drawing** restores
+it into a board with the same logical width/height (file limit 32 MB). Save SVG for
+vector output or PNG for a raster image; each export also exposes a download link.
+Browser download behavior can vary in embedded viewers.
+
+To keep memory predictable, boards allow 2,000 objects, 100,000 total points,
+10,000 points per stroke, and up to 200 undo commands (also limited by retained
+geometry and text size). Lift the pen to begin another
+stroke if a stroke reaches its limit. Canvas resolution is capped independently
+of display scale; this is a bounded whiteboard, not an infinite-canvas editor.

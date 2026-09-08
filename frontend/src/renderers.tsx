@@ -7,6 +7,7 @@
 import type { LectureEvent } from "./protocol";
 import { isSafeUrl } from "./select";
 import { useResource } from "./resources";
+import { Whiteboard } from "./Whiteboard";
 
 type P = { event: LectureEvent };
 
@@ -120,6 +121,7 @@ export function TerminalBlock({ event }: P) {
 
 export function ComponentBlock({ event }: P) {
   const p = payload(event);
+  if (p["component_type"] === "whiteboard") return <Whiteboard event={event} />;
   return (
     <>
       <div className="muted" role="note">

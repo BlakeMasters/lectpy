@@ -31,24 +31,42 @@ to build the configured entrypoint. For a document with no line stepping, use
 `lecture build examples/document.py --provider python`. See
 [Authoring](docs/AUTHORING.md) for configuration precedence and supported settings.
 
+## What you can create
+
+Build traced technical explanations or plain Python documents with text, code,
+bounded tables, local media, and pen-aware whiteboards. Both viewers offer Reader,
+Presenter and Inspector styles. Local assets travel with static exports.
+
+```python
+from lecture import image, whiteboard
+
+def main():
+    image("assets/diagram.svg", alt="Describe the diagram here")
+    whiteboard("Working notes")
+```
+
+Whiteboards provide pen/highlighter, eraser, shapes, text, undo/redo and
+SVG/PNG/editable-JSON export. Drawings survive stepping but must be saved before
+reloading. Pair styluses through the OS; pressure depends on browser/device support.
+
 ## Design (summary)
 
-```
-Python authoring SDK → versioned lecture/event protocol → browser app → capability broker → runtimes
-```
+Python SDK → v1 event log + artifacts → static viewer or React shell.
+An optional live workflow connects the React shell to the local capability broker.
 
-- **Canonical UI:** browser TypeScript app (+ optional Tauri wrapper). v0.1 ships a
-  dependency-free static replay viewer; the full React shell lands in v0.2.
+- **Viewers:** dependency-free static HTML and a React/TypeScript shell. Live
+  terminal tools and the whiteboard engine load separately from replay startup.
 - **Core pattern:** microkernel + registries, not a monolithic notebook app.
 - **Local privileged layer:** capability broker (`src/lecture/broker/`) owns
   kernels, processes, PTYs, artifacts, permissions. Browser never spawns natively.
 - **Python execution:** `TraceRuntime` (edtrace-compatible `sys.settrace` stepper)
   is one provider; Jupyter kernels are the general REPL provider (v0.3).
-- **State:** ordered, single-writer **event log** for execution; CRDT (Yjs/Automerge)
-  only for collaboratively edited *source* (v0.5). Never CRDT for runtime effects.
-- **Data:** JSON control plane + content-addressed blobs + Arrow IPC for arrays (lazy).
-- **Security:** capability policy (`static`, `local-trusted`, `local-restricted`,
-  `classroom`, `public-untrusted`) layered over OS/container/WASM isolation.
+- **State:** ordered execution events; whiteboard annotations are separate local
+  viewer state. Collaboration and general live component actions remain future work.
+- **Data:** small JSON events and content-addressed files; large local media is
+  captured and exported in chunks. Tables and inspectors provide bounded previews.
+- **Policy:** local capability profiles and a broker token. Profiles do not turn
+  ordinary Python execution into an OS sandbox; see the security documentation.
 - **Publishing:** static replay bundle is first-class, with capability-degradation rules.
 
 See `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/SECURITY.md`,
@@ -66,13 +84,13 @@ src/lecture/          Python SDK + microkernel core
   policy.py           capability profiles + enforcement helpers
   sanitize.py         markdown → sanitized HTML (no raw dangerouslySetInnerHTML path)
   trace.py            TraceExecutor (sys.settrace pedagogical stepper)
-  providers/          trace / process-one-shot runtimes (jupyter, pty in roadmap)
+  providers/          execution providers, including trace/process/Jupyter adapters
   broker/             in-process capability broker (session/event/artifact services)
   plugins.py          renderer / execution / inspector registries
   export_static.py    static bundle writer (lecture.json + artifacts + index.html)
   cli.py              lecture init|trace|build|serve|doctor|test
 schemas/              JSON schemas (event v1, manifest v1)
-frontend/             TS shell stub (full app in v0.2; replay viewer is static HTML)
+frontend/             React shell, lazy live tools, and frontend tests
 examples/             executable .py lectures
 tests/                protocol / replay-golden / security / perf-smoke suites
 docs/                 architecture / roadmap / security / authoring
@@ -80,9 +98,11 @@ docs/                 architecture / roadmap / security / authoring
 
 ## Status
 
-**v0.1.0 — Protocol & compatibility core (this milestone).** Lecture IR, event
-schemas, scoped author SDK, tracer, CAS store, static export + replay, CLI,
-test suites. See `docs/ROADMAP.md` for v0.2–v0.7.
+The package is pre-1.0 and keeps the v1 event envelope compatible. Implemented
+authoring workflows are documented in [Authoring](docs/AUTHORING.md); architecture
+and roadmap documents also describe planned capabilities. Plot specifications and
+arbitrary custom components still use recorded placeholders unless a renderer is
+provided; whiteboards are a working stock component.
 
 ## Compatibility
 

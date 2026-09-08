@@ -16,6 +16,7 @@ import {
 } from "./components";
 import { readLiveParams } from "./liveParams";
 import { ResourceProvider } from "./resources";
+import { WhiteboardSession } from "./Whiteboard";
 import type { ResourceEnvironment } from "./resources";
 import { displayIndex, parseView, resolveView } from "./views";
 import type { LectureBundle, LectureEvent } from "./protocol";
@@ -262,7 +263,9 @@ export default function App() {
           ))}
           {view === "inspector" && <EnvInspector locals={locals} />}
           <ResourceProvider environment={resourceEnvironment}>
-            <OutputView outputs={outputs} registry={regs.renderers} />
+            <WhiteboardSession key={bundle.events[0]?.execution_id ?? "empty"}>
+              <OutputView outputs={outputs} registry={regs.renderers} />
+            </WhiteboardSession>
           </ResourceProvider>
           {view === "inspector" && <InspectsList inspects={inspects} />}
         </section>

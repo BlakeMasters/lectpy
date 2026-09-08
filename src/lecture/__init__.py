@@ -32,6 +32,7 @@ __all__ = [
     "clear",
     "system_text",
     "component",
+    "whiteboard",
     "terminal",
     "inspect",
     "hide",
@@ -132,6 +133,32 @@ def inspect_value(name: str, value: Any) -> Event:
 
 def clear() -> Event:
     return _emit("clear", {})
+
+
+def whiteboard(
+    title: str = "Whiteboard",
+    *,
+    width: int = 1200,
+    height: int = 675,
+    background: str = "grid",
+) -> Event:
+    """Spawn a local drawing surface with pen, shapes, text and portable exports.
+
+    Runs in both static and live viewers. Pair Bluetooth styluses in the OS;
+    browser Pointer Events supply pressure when supported. Drawing state is local
+    to the viewer and survives stepping, but must be saved before reloading.
+    """
+    if not isinstance(title, str):
+        raise TypeError("whiteboard title must be a string")
+    if type(width) is not int or not 320 <= width <= 3840:
+        raise ValueError("whiteboard width must be an integer from 320 to 3840")
+    if type(height) is not int or not 180 <= height <= 2160:
+        raise ValueError("whiteboard height must be an integer from 180 to 2160")
+    if background not in {"blank", "grid", "dots"}:
+        raise ValueError("whiteboard background must be blank, grid, or dots")
+    return component(
+        "whiteboard", {"title": title, "width": width, "height": height, "background": background}
+    )
 
 
 def component(
