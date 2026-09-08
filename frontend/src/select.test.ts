@@ -53,12 +53,24 @@ describe("step plumbing", () => {
     const steps = stepEvents(GOLDEN);
     expect(endSeqFor(steps, 0)).toBe(1);
     expect(endSeqFor(steps, 3)).toBe(Number.POSITIVE_INFINITY);
-    expect(endSeqFor([], 0)).toBe(-1);
+    expect(endSeqFor([], 0)).toBe(Number.POSITIVE_INFINITY);
   });
 });
 
 describe("visible outputs", () => {
   const steps = stepEvents(GOLDEN);
+
+  it("renders notebook and document outputs without line steps, respecting clear", () => {
+    const events = [
+      ev(0, "text", { markdown: "old" }),
+      ev(1, "clear"),
+      ev(2, "text", { markdown: "new" }),
+      ev(3, "inspect", { name: "x", summary: "2" }),
+      ev(4, "error", { message: "import failed" }),
+    ];
+    expect(visibleOutputs(events, [], 0).map((e) => e.seq)).toEqual([2, 4]);
+    expect(visibleInspects(events, [], 0).map((e) => e.seq)).toEqual([3]);
+  });
 
   it("shows outputs up to the current step only", () => {
     expect(visibleOutputs(GOLDEN, steps, 0).map((e) => e.seq)).toEqual([]);

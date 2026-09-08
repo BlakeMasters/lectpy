@@ -16,6 +16,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..sanitize import markdown_to_html
+
 VEGA_MIMES = (
     "application/vnd.vegalite.v5+json",
     "application/vnd.vegalite.v4+json",
@@ -177,6 +179,12 @@ class JupyterKernel:
         return events
 
     def _rich_output(self, content: dict[str, Any]) -> dict[str, Any]:
+        output = self._map_rich_output(content)
+        if output["kind"] == "text":
+            output["payload"]["html"] = markdown_to_html(output["payload"]["markdown"])
+        return output
+
+    def _map_rich_output(self, content: dict[str, Any]) -> dict[str, Any]:
         data = content.get("data", {}) or {}
         for mime in VEGA_MIMES:
             if mime in data:

@@ -73,6 +73,7 @@ class TraceExecutor:
         self.steps: list[TraceStep] = []
 
     def trace_file(self, path: str | Path) -> ExecutionContext:
+        self.steps.clear()
         path = Path(path).resolve()
         source = path.read_text(encoding="utf-8")
         source_lines = {i + 1: l for i, l in enumerate(source.splitlines())}
@@ -82,23 +83,26 @@ class TraceExecutor:
         ctx.emit("session_start", {"source_file": str(path), "runtime": "trace"})
 
         # Load module without executing main yet (mirrors edtrace: import, then trace main()).
-        spec = importlib.util.spec_from_file_location("_lecture_target", str(path))
+        module_name = f"_lecture_target_{ctx.execution_id}"
+        spec = importlib.util.spec_from_file_location(module_name, str(path))
         if spec is None or spec.loader is None:
             ctx.emit("error", {"message": f"cannot load module: {path}"})
             return ctx
         module = importlib.util.module_from_spec(spec)
-        sys.modules["_lecture_target"] = module
+        sys.modules[module_name] = module
         try:
             spec.loader.exec_module(module)  # type: ignore[union-attr]
         except Exception as e:
             ctx.emit("error", {"message": f"import failed: {e!r}"})
             ctx.emit("session_end", {"status": "import-error"})
+            sys.modules.pop(module_name, None)
             return ctx
 
         main = getattr(module, "main", None)
         if not callable(main):
             ctx.emit("error", {"message": "lecture module defines no callable main()"})
             ctx.emit("session_end", {"status": "no-main"})
+            sys.modules.pop(module_name, None)
             return ctx
 
         # Normalize for Windows case/sep comparisons
@@ -302,5 +306,5 @@ class TraceExecutor:
         finally:
             sys.settrace(old_trace)
             linecache.clearcache()
-            sys.modules.pop("_lecture_target", None)
+            sys.modules.pop(module_name, None)
         return ctx

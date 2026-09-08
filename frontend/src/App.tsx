@@ -5,7 +5,7 @@
  *  step bar, environment inspector, renderer-registry outputs, virtualized
  *  source pane. All stepping is keyboard reachable and URL deep-linked.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   EnvInspector,
   InspectsList,
@@ -14,7 +14,7 @@ import {
   StepBar,
   stepIndexForLine,
 } from "./components";
-import LivePanel, { readLiveParams } from "./LivePanel";
+import { readLiveParams } from "./liveParams";
 import type { LectureBundle, LectureEvent } from "./protocol";
 import {
   ComponentBlock,
@@ -35,6 +35,8 @@ import {
   visibleInspects,
   visibleOutputs,
 } from "./select";
+
+const LivePanel = lazy(() => import("./LivePanel"));
 
 function buildRegistries() {
   const renderers = new RendererRegistry();
@@ -73,6 +75,13 @@ export default function App() {
   const liveInitial = useMemo(() => (liveMode ? readLiveParams() : null), [liveMode]);
 
   useEffect(() => {
+    if (liveMode) {
+      setBundle({
+        manifest: { format_version: 1, title: "Live lecture", source_file: "", source_sha256: "" },
+        events: [],
+      });
+      return;
+    }
     let cancelled = false;
     fetch(bundleUrl())
       .then((r) => {
@@ -90,7 +99,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [liveMode]);
 
   const steps: LectureEvent[] = useMemo(
     () => (bundle ? stepEvents(bundle.events) : []),
@@ -125,7 +134,8 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+      if (t?.closest("input, textarea, select, button, a, [contenteditable=true], [role=slider]")) return;
+      if (["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) e.preventDefault();
       if (e.key === "ArrowRight") go(idx + 1);
       else if (e.key === "ArrowLeft") go(idx - 1);
       else if (e.key === "Home") go(0);
@@ -135,14 +145,15 @@ export default function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, [go, idx, steps.length]);
 
-  // Register shell commands (discoverable/remappable surface for v0.3+).
+  const nextStep = useRef(() => go(idx + 1));
+  nextStep.current = () => go(idx + 1);
+
+  // Keep the registered command pointed at current navigation state.
   useEffect(() => {
-    try {
-      regs.commands.register({ id: "step.next", title: "Forward", keybinding: "ArrowRight", run: () => go(idx + 1) });
-    } catch {
-      /* re-registration across StrictMode remounts */
+    if (!regs.commands.get("step.next")) {
+      regs.commands.register({ id: "step.next", title: "Forward", keybinding: "ArrowRight", run: () => nextStep.current() });
     }
-  }, [regs.commands, go, idx]);
+  }, [regs.commands]);
 
   if (error) {
     return (
@@ -183,14 +194,16 @@ export default function App() {
         </span>
       </header>
       {liveMode && liveInitial ? (
-        <LivePanel
-          initial={liveInitial}
-          onLiveBundle={(b, label) => {
-            setBundle(b);
-            setLiveLabel(label);
-            setIdx(parseStepParam(window.location.search, stepEvents(b.events).length));
-          }}
-        />
+        <Suspense fallback={<p role="status">Loading live tools…</p>}>
+          <LivePanel
+            initial={liveInitial}
+            onLiveBundle={(b, label) => {
+              setBundle(b);
+              setLiveLabel(label);
+              setIdx(parseStepParam(window.location.search, stepEvents(b.events).length));
+            }}
+          />
+        </Suspense>
       ) : null}
       <StepBar
         idx={idx}
@@ -201,14 +214,14 @@ export default function App() {
         onOver={() => go(idx + 1)}
         onLast={() => go(steps.length - 1)}
       />
-      <div className="layout">
+      <div className={bundle.source ? "layout" : "layout document-layout"}>
         <section id="stage" tabIndex={0} aria-label="Lecture stage">
           {s ? (
             <p className="muted">
               {(payload["func"] as string) ?? ""} @ line {String(payload["line"] ?? "?")}
             </p>
           ) : (
-            <p className="muted">No steps recorded.</p>
+            <p className="muted">Recorded document</p>
           )}
           <EnvInspector locals={locals} />
           <OutputView outputs={outputs} registry={regs.renderers} />
@@ -220,9 +233,7 @@ export default function App() {
             currentLine={currentLine}
             onSeekLine={(line) => go(stepIndexForLine(steps, line))}
           />
-        ) : (
-          <p className="muted">No source snapshot in this bundle.</p>
-        )}
+        ) : null}
       </div>
       <p className="muted">
         Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via{" "}

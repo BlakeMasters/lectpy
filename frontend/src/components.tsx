@@ -41,10 +41,10 @@ export function StepBar({
         Last ▶|
       </button>
       <span id="pos" aria-hidden="true">
-        {count === 0 ? "0 / 0" : `${idx + 1} / ${count}`}
+        {count === 0 ? "Document" : `${idx + 1} / ${count}`}
       </span>
       <span id="meta" className="muted" role="status" aria-live="polite">
-        {count === 0 ? "No steps recorded" : `Step ${idx + 1} of ${count}`}
+        {count === 0 ? "Recorded document" : `Step ${idx + 1} of ${count}`}
       </span>
     </div>
   );

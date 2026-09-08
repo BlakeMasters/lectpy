@@ -1,5 +1,7 @@
 import textwrap
 
+import pytest
+
 from lecture.policy import default_policy
 from lecture.trace import TraceExecutor
 
@@ -122,3 +124,55 @@ def test_examples_trace_cleanly():
     ex = Path(__file__).resolve().parents[1] / "examples" / "lecture_01.py"
     ctx = TraceExecutor(policy=default_policy("local-trusted")).trace_file(ex)
     assert any(e.kind == "plot" for e in ctx.log.subscribe())
+
+
+def test_sdk_outputs_point_to_author_file_line_and_function(tmp_path):
+    src = _write(
+        tmp_path,
+        "locations.py",
+        """\
+        from lecture import text, note, inspect_value
+        def helper():
+            text("hello")
+            note("note")
+            inspect_value("answer", 42)
+        def main():
+            helper()
+    """,
+    )
+    ctx = TraceExecutor().trace_file(src)
+    outputs = [e for e in ctx.log.subscribe() if e.kind in {"text", "note", "inspect"}]
+    assert [e.source_location.line for e in outputs] == [3, 4, 5]
+    assert all(e.source_location.file == str(src) for e in outputs)
+    assert all(e.source_location.func == "helper" for e in outputs)
+
+
+def test_repeated_traces_reset_step_count(tmp_path):
+    src = _write(tmp_path, "repeat.py", "def main():\n    x = 1\n")
+    executor = TraceExecutor()
+    first = executor.trace_file(src)
+    second = executor.trace_file(src)
+    assert first.log.to_list()[-1]["payload"]["steps"] == len(executor.steps)
+    assert second.log.to_list()[-1]["payload"]["steps"] == len(executor.steps)
+
+
+@pytest.mark.parametrize("body", ["raise ValueError('import')", "x = 1"])
+def test_early_trace_failure_releases_module(tmp_path, body):
+    import sys
+
+    before = {k for k in sys.modules if k.startswith("_lecture_target_")}
+    ctx = TraceExecutor().trace_file(_write(tmp_path, "failed.py", body))
+    assert ctx.log.to_list()[-1]["kind"] == "session_end"
+    assert {k for k in sys.modules if k.startswith("_lecture_target_")} == before
+
+
+def test_budget_exhaustion_still_records_failure_and_end(tmp_path):
+    from dataclasses import replace
+
+    policy = replace(default_policy("local-trusted"), max_events=2)
+    ctx = TraceExecutor(policy=policy).trace_file(
+        _write(tmp_path, "budget.py", "def main():\n    x = 1\n    x += 1\n")
+    )
+    events = ctx.log.to_list()
+    assert [e["kind"] for e in events[-2:]] == ["error", "session_end"]
+    assert "event budget exceeded" in events[-2]["payload"]["message"]

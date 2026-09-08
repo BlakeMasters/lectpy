@@ -15,7 +15,7 @@ from typing import Any
 
 from ..artifacts import ArtifactStore
 from ..context import ExecutionContext
-from ..events import Event
+from ..events import Event, SourceLocation
 from ..ir import Checkpoint
 from ..policy import GrantedPolicy, default_policy
 from ..trace import TraceExecutor
@@ -76,7 +76,11 @@ class InProcessBroker:
             sess.ctx.log.append(
                 kind,
                 item.get("payload", {}),
-                source_location=None,
+                source_location=(
+                    SourceLocation.from_dict(item["source_location"])
+                    if item.get("source_location")
+                    else None
+                ),
                 artifact_refs=item.get("artifact_refs", []),
             )
         return sess.ctx

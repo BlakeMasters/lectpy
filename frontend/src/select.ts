@@ -32,7 +32,7 @@ export function parseStepParam(search: string, count: number): number {
 }
 
 export function endSeqFor(steps: LectureEvent[], idx: number): number {
-  if (steps.length === 0) return -1;
+  if (steps.length === 0) return Number.POSITIVE_INFINITY;
   if (idx >= steps.length - 1) return Number.POSITIVE_INFINITY;
   return steps[idx].seq;
 }
@@ -50,7 +50,7 @@ export function visibleOutputs(
   steps: LectureEvent[],
   idx: number,
 ): LectureEvent[] {
-  if (steps.length === 0 || idx < 0) return [];
+  if (idx < 0) return [];
   const endSeq = endSeqFor(steps, idx);
   const clearSeq = clearSeqBefore(events, endSeq);
   return events.filter(
@@ -65,7 +65,7 @@ export function visibleInspects(
   idx: number,
   limit = 8,
 ): LectureEvent[] {
-  if (steps.length === 0 || idx < 0) return [];
+  if (idx < 0) return [];
   const endSeq = endSeqFor(steps, idx);
   const clearSeq = clearSeqBefore(events, endSeq);
   return events

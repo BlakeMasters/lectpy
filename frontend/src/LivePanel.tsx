@@ -24,25 +24,7 @@ import {
   type BrokerConfig,
 } from "./broker";
 import type { LectureBundle, LectureEvent } from "./protocol";
-
-export interface LiveInitial {
-  baseUrl: string;
-  token: string;
-  entry: string;
-  ptyCommand: string;
-  auto: boolean;
-}
-
-export function readLiveParams(): LiveInitial {
-  const q = new URLSearchParams(window.location.search);
-  return {
-    baseUrl: q.get("broker") ?? sessionStorage.getItem("lectpy.broker") ?? "http://127.0.0.1:7888",
-    token: q.get("token") ?? sessionStorage.getItem("lectpy.token") ?? "",
-    entry: q.get("entry") ?? "examples/lecture_01.py",
-    ptyCommand: q.get("ptycmd") ?? "python --version",
-    auto: q.get("auto") !== "0",
-  };
-}
+import type { LiveInitial } from "./liveParams";
 
 export default function LivePanel({
   initial,

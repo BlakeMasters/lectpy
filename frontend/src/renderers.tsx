@@ -19,11 +19,13 @@ function str(v: unknown, fallback = ""): string {
 
 export function TextBlock({ event }: P) {
   const p = payload(event);
+  if (typeof p["html"] !== "string") return <pre className="out">{str(p["markdown"])}</pre>;
   return <div className="out" dangerouslySetInnerHTML={{ __html: str(p["html"]) }} />;
 }
 
 export function NoteBlock({ event }: P) {
   const p = payload(event);
+  if (typeof p["html"] !== "string") return <pre className="out note">{str(p["markdown"])}</pre>;
   return (
     <div className="out note" dangerouslySetInnerHTML={{ __html: str(p["html"]) }} />
   );

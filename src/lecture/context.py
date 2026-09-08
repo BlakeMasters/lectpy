@@ -99,23 +99,33 @@ class ExecutionContext:
         line: int | None = None,
         func: str = "main",
         artifact_refs: list[str] | None = None,
+        source_location: SourceLocation | None = None,
     ) -> Event:
-        loc = None
-        if line is not None:
+        loc = source_location
+        if loc is None and line is not None:
             loc = SourceLocation(file=self.source_file, line=line, func=func)
-        if len(self.log) >= self.policy.max_events:
+        if kind not in {"session_start", "session_end", "error"} and (
+            len(self.log) >= self.policy.max_events
+        ):
             raise RuntimeError(f"event budget exceeded ({self.policy.max_events})")
         return self.log.append(
             kind, payload or {}, source_location=loc, artifact_refs=artifact_refs
         )
 
-    def inspect(self, name: str, value: Any, *, line: int | None = None) -> Event:
+    def inspect(
+        self,
+        name: str,
+        value: Any,
+        *,
+        line: int | None = None,
+        source_location: SourceLocation | None = None,
+    ) -> Event:
         info = _summarize(value)
         payload: dict[str, Any] = {"name": name, **info}
         # Large values stay behind a handle; only preview crosses the event log.
         if len(info.get("summary", "")) >= MAX_REPR_LEN or info.get("len", 0) > 1000:
             payload["handle"] = self.register_object(value)
-        return self.emit("inspect", payload, line=line)
+        return self.emit("inspect", payload, line=line, source_location=source_location)
 
 
 def get_current() -> ExecutionContext | None:

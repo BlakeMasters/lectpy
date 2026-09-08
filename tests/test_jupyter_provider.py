@@ -71,6 +71,7 @@ def test_execute_result_maps_to_text(kern):
     events = _execute(kern, "1 + 1")
     texts = [e for e in events if e["kind"] == "text"]
     assert texts and any("2" in (e["payload"].get("markdown", "")) for e in texts)
+    assert any("2" in e["payload"].get("html", "") for e in texts)
 
 
 def test_stream_maps_to_terminal(kern):

@@ -26,6 +26,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0 aut
 header.top{display:flex;gap:1rem;align-items:baseline;border-bottom:1px solid #8884;padding-bottom:.5rem}
 #stepbar{display:flex;gap:.5rem;align-items:center;margin:1rem 0;flex-wrap:wrap}
 button{padding:.4rem .8rem;border:1px solid #888;border-radius:6px;background:Canvas;color:CanvasText;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
 button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid #0969da;outline-offset:2px}
 #stage{border:1px solid #8884;border-radius:8px;padding:1rem;min-height:200px}
 pre.code{background:#8881;border-radius:8px;padding:.75rem;overflow:auto}
@@ -49,7 +50,7 @@ var meta=document.getElementById("meta");
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function renderOutput(ev){
   var p=ev.payload||{};
-  if(ev.kind==="text"||ev.kind==="note"){return '<div class="out">'+(p.html||"")+'</div>'}
+  if(ev.kind==="text"||ev.kind==="note"){return '<div class="out">'+(typeof p.html==="string"?p.html:'<pre>'+esc(p.markdown||"")+'</pre>')+'</div>'}
   if(ev.kind==="image"){return '<figure><img src="'+esc(p.src||"")+'" alt="'+esc(p.alt||"")+'"><figcaption>'+esc(p.title||"")+'</figcaption></figure>'}
   if(ev.kind==="video"){return '<video controls src="'+esc(p.src||"")+'"></video>'}
   if(ev.kind==="link"){return '<p><a href="'+esc(p.href||"#")+'">'+esc(p.label||p.href||"")+'</a></p>'}
@@ -66,36 +67,39 @@ function renderOutput(ev){
 function render(){
   var s=steps[idx];
   var h="";
-  if(!s){stage.innerHTML='<p class="muted">No steps recorded.</p>';pos.textContent="0 / 0";return}
   // The final step owns the tail: outputs of the last source line (and crash
   // errors) have no later step to attach to, so they join the last step.
   // Anything at or before a `clear` event is dropped from outputs/inspects.
-  var endSeq=(idx>=steps.length-1)?Infinity:s.seq;
+  var endSeq=(!s||idx>=steps.length-1)?Infinity:s.seq;
   var clearSeq=-1,i;
   for(i=0;i<events.length;i++){if(events[i].kind==="clear"&&events[i].seq<=endSeq&&events[i].seq>clearSeq){clearSeq=events[i].seq}}
   var upto=events.filter(function(e){return e.kind!=="step"&&e.kind!=="clear"&&e.kind!=="inspect"&&e.kind!=="session_start"&&e.kind!=="session_end"&&e.kind!=="snapshot"&&e.seq<=endSeq&&e.seq>clearSeq});
-  var p=s.payload||{};
+  var p=(s&&s.payload)||{};
   var loc=(p.func||"")+" @ line "+(p.line||"?");
-  h+='<p class="muted">'+esc(loc)+'</p>';
+  if(s){h+='<p class="muted">'+esc(loc)+'</p>'}
   var locals=p.locals||{};
   var keys=Object.keys(locals);
   if(keys.length){h+='<details open><summary>Environment ('+keys.length+')</summary><pre class="code">'+esc(keys.map(function(k){return k+" = "+locals[k]}).join("\\n"))+'</pre></details>'}
   upto.forEach(function(ev){h+=renderOutput(ev)});
   var insp=events.filter(function(e){return e.kind==="inspect"&&e.seq<=endSeq&&e.seq>clearSeq}).slice(-8);
   if(insp.length){h+='<details><summary>Inspected values</summary><pre class="code">'+esc(insp.map(function(e){return (e.payload.name||"?")+" = "+(e.payload.summary||"")}).join("\\n"))+'</pre></details>'}
-  stage.innerHTML=h;
-  pos.textContent=(idx+1)+" / "+steps.length;
+  stage.innerHTML=h||'<p class="muted">No content recorded.</p>';
+  pos.textContent=steps.length?(idx+1)+" / "+steps.length:"Document";
+  document.getElementById("prev").disabled=idx<=0;
+  document.getElementById("next").disabled=idx>=steps.length-1;
+  document.getElementById("over").disabled=idx>=steps.length-1;
   try{var u=new URL(location.href);u.searchParams.set("step",String(idx));history.replaceState(null,"",u)}catch(e){}
-  meta.textContent="Step "+(idx+1)+" of "+steps.length;
+  meta.textContent=steps.length?"Step "+(idx+1)+" of "+steps.length:"Recorded document";
 }
-function go(d){idx=Math.min(Math.max(idx+d,0),steps.length-1);render();document.getElementById("prev").focus({preventScroll:true})}
+function go(d){idx=Math.min(Math.max(idx+d,0),Math.max(steps.length-1,0));render()}
 document.getElementById("prev").addEventListener("click",function(){go(-1)});
 document.getElementById("next").addEventListener("click",function(){go(1)});
 document.getElementById("over").addEventListener("click",function(){go(1)});
 document.addEventListener("keydown",function(e){
-  if(e.target&&(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"))return;
+  if(e.target&&e.target.closest&&e.target.closest('input,textarea,select,button,a,[contenteditable=true],[role=slider]'))return;
+  if(["ArrowRight","ArrowLeft","Home","End"].indexOf(e.key)>=0)e.preventDefault();
   if(e.key==="ArrowRight"){go(1)}else if(e.key==="ArrowLeft"){go(-1)}
-  else if(e.key==="Home"){idx=0;render()}else if(e.key==="End"){idx=steps.length-1;render()}
+  else if(e.key==="Home"){idx=0;render()}else if(e.key==="End"){idx=Math.max(steps.length-1,0);render()}
 });
 var reduced=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 if(!reduced){try{stage.scrollIntoView({block:"nearest"})}catch(e){}}
