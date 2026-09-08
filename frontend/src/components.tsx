@@ -192,9 +192,11 @@ export function SourcePane({
 
 export function OutputView({
   outputs,
+  activeOutputSeqs,
   registry,
 }: {
   outputs: LectureEvent[];
+  activeOutputSeqs: ReadonlySet<number>;
   registry: RendererRegistry;
 }) {
   return (
@@ -203,7 +205,17 @@ export function OutputView({
         const contrib = registry.resolve(e.kind);
         if (!contrib) return null;
         const C = contrib.component;
-        return <C key={`${e.seq}`} event={e} />;
+        const current = activeOutputSeqs.has(e.seq);
+        return (
+          <article
+            key={`${e.seq}`}
+            className={current ? "lecture-output lecture-output-current" : "lecture-output"}
+            data-output-seq={e.seq}
+            aria-current={current ? "step" : undefined}
+          >
+            <C event={e} />
+          </article>
+        );
       })}
     </>
   );

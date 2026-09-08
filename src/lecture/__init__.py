@@ -211,8 +211,11 @@ def browser_open(
     """Declare a user-initiated reference window for the browser viewer.
 
     The viewer renders an accessible Open button because browsers block
-    unsolicited popups. Once opened, the named window can be closed with
-    ``browser_close(window_id)`` or its card's Close button.
+    unsolicited popups. In a user-activated Presenter or Inspector step
+    transition, the viewer may also apply this recorded open automatically;
+    the button and fallback link remain available if a popup is blocked. Once
+    opened, the named window can be closed with ``browser_close(window_id)`` or
+    its card's Close button.
     """
     from urllib.parse import urlsplit
 

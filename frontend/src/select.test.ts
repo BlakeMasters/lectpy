@@ -3,6 +3,7 @@ import type { LectureEvent } from "./protocol";
 import {
   clampStep,
   clearSeqBefore,
+  currentOutputSeqs,
   endSeqFor,
   isSafeUrl,
   parseStepParam,
@@ -12,6 +13,7 @@ import {
   traceReference,
   virtualWindow,
   visibleInspects,
+  visibleBrowserWindowEvents,
   visibleOutputs,
 } from "./select";
 
@@ -79,6 +81,13 @@ describe("visible outputs", () => {
     expect(visibleOutputs(GOLDEN, steps, 1).map((e) => e.seq)).toEqual([2]);
   });
 
+  it("identifies the output introduced by the current step", () => {
+    expect(currentOutputSeqs(GOLDEN, steps, 0)).toEqual([]);
+    expect(currentOutputSeqs(GOLDEN, steps, 1)).toEqual([2]);
+    expect(currentOutputSeqs(GOLDEN, steps, 2)).toEqual([]);
+    expect(currentOutputSeqs(GOLDEN, steps, 3)).toEqual([7, 9, 11]);
+  });
+
   it("drops everything at or before a clear", () => {
     expect(clearSeqBefore(GOLDEN, 6)).toBe(5);
     // Step at seq 6 is line-12 *entry*: text@7 belongs to that line's own
@@ -100,6 +109,20 @@ describe("visible outputs", () => {
     expect(kinds).not.toContain("session_end");
     expect(kinds).not.toContain("clear");
     expect(kinds).not.toContain("inspect");
+  });
+
+  it("selects browser commands without treating other components as windows", () => {
+    const events = [
+      ev(1, "step", { line: 1 }),
+      ev(2, "component", { component_type: "browser-window", props: { action: "open" } }),
+      ev(3, "component", { component_type: "whiteboard", props: {} }),
+      ev(4, "step", { line: 2 }),
+      ev(5, "component", { component_type: "browser-window", props: { action: "close" } }),
+      ev(6, "step", { line: 3 }),
+    ];
+    const selectedSteps = stepEvents(events);
+    expect(visibleBrowserWindowEvents(events, selectedSteps, 1).map((e) => e.seq)).toEqual([2]);
+    expect(visibleBrowserWindowEvents(events, selectedSteps, 2).map((e) => e.seq)).toEqual([2, 5]);
   });
 });
 

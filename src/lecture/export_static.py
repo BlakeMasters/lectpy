@@ -22,44 +22,35 @@ from .ir import Checkpoint, LectureManifest
 
 VIEWER_CSS = """
 :root{color-scheme:light dark;--lectpy-body-font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;--lectpy-code-font:ui-monospace,SFMono-Regular,Consolas,monospace;--lectpy-font-scale:1;--lectpy-line-height:1.55;--trace-highlight:#d97706}
-body{font-family:var(--lectpy-body-font);font-size:calc(1rem * var(--lectpy-font-scale));margin:0 auto;max-width:1100px;padding:1.5rem;line-height:var(--lectpy-line-height)}
+body{font-family:var(--lectpy-body-font);font-size:calc(1rem * var(--lectpy-font-scale));margin:0 auto;max-width:1280px;padding:0 2rem 3rem;line-height:var(--lectpy-line-height)}
 body[data-display=technical]{--lectpy-line-height:1.45}body[data-display=reading]{--lectpy-line-height:1.7}
 code,pre,.source-line code{font-family:var(--lectpy-code-font)}
-header.top{display:flex;flex-wrap:wrap;gap:1rem;align-items:baseline;border-bottom:1px solid #8884;padding-bottom:.5rem}
-#stepbar{display:flex;gap:.5rem;align-items:center;margin:1rem 0;flex-wrap:wrap}
-button{padding:.4rem .8rem;border:1px solid #888;border-radius:6px;background:Canvas;color:CanvasText;cursor:pointer}
-button:disabled{opacity:.45;cursor:default}
+header.top{display:flex;flex-wrap:wrap;gap:1rem;align-items:baseline;border-bottom:1px solid color-mix(in srgb,CanvasText 24%,Canvas);padding:1.35rem 0 .65rem}
+#stepbar{display:flex;gap:.5rem;align-items:center;margin:0;padding:.65rem 0;flex-wrap:wrap;border-bottom:1px solid color-mix(in srgb,CanvasText 18%,Canvas)}
+button{padding:.35rem .65rem;border:1px solid color-mix(in srgb,CanvasText 42%,Canvas);border-radius:2px;background:color-mix(in srgb,CanvasText 4%,Canvas);color:CanvasText;cursor:pointer}
+button:hover:not(:disabled){background:color-mix(in srgb,CanvasText 12%,Canvas)}button:disabled{opacity:.45;cursor:default}
 button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid #0969da;outline-offset:2px}
-#trace-layout{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:1rem;align-items:start}
+#trace-layout{display:grid;grid-template-columns:minmax(250px,30%) minmax(0,1fr);gap:0;align-items:start}
 #trace-layout:not(.trace-open){display:block}
-#stage{border:1px solid #8884;border-radius:8px;padding:1rem;min-height:200px}
-#source-panel{min-width:0}#source-panel[hidden]{display:none}
-.source-title{font-size:1rem;margin:.1rem 0 .5rem}.source-scroll{border:1px solid #8884;border-radius:8px;overflow:auto;height:60vh;font-size:.88em;background:Canvas}
+#stage{padding:1.25rem 0;min-height:200px}
+#source-panel{min-width:0;padding-right:1rem}#source-panel[hidden]{display:none}
+.source-title{font-size:1rem;margin:.1rem 0 .5rem}.source-scroll{border:1px solid color-mix(in srgb,CanvasText 24%,Canvas);border-radius:2px;overflow:auto;height:60vh;font-size:.88em;background:Canvas}
 .source-line{display:flex;gap:.7rem;min-height:1.55em;line-height:1.55em;padding:0 .5rem;white-space:pre;cursor:pointer}.source-line:hover{background:#8882}
-.source-line.current{background:color-mix(in srgb,var(--trace-highlight) 14%,Canvas);box-shadow:inset 3px 0 0 var(--trace-highlight)}.source-line.current .source-lineno{font-weight:700;color:var(--trace-highlight)}
+.source-line.current{background:color-mix(in srgb,var(--trace-highlight) 5%,Canvas);box-shadow:inset 2px 0 0 var(--trace-highlight)}.source-line.current .source-lineno{font-weight:700;color:var(--trace-highlight)}
 .source-lineno{min-width:3em;text-align:right;opacity:.55;user-select:none}
-.trace-location{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.75rem 0;font-family:var(--lectpy-code-font);font-size:.88em}.trace-location-current{opacity:.7}.trace-reference{border:0;border-radius:999px;padding:.2rem .55rem;color:CanvasText;background:color-mix(in srgb,var(--trace-highlight) 14%,Canvas);font-family:inherit;font-size:.95em}.trace-reference:hover{background:color-mix(in srgb,var(--trace-highlight) 24%,Canvas)}
-pre.code{background:#8881;border-radius:8px;padding:.75rem;overflow:auto}
+.trace-location{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.75rem 0 0;font-family:var(--lectpy-code-font);font-size:.88em}.trace-location-current{opacity:.7}.trace-reference{border:0;border-bottom:2px solid var(--trace-highlight);border-radius:0;padding:.12rem .25rem;color:CanvasText;background:color-mix(in srgb,var(--trace-highlight) 9%,Canvas);font-family:inherit;font-size:.95em}.trace-reference:hover{background:color-mix(in srgb,var(--trace-highlight) 18%,Canvas)}
+.lecture-output{margin:0;padding:.85rem 0;border-top:1px solid color-mix(in srgb,CanvasText 12%,Canvas);scroll-margin-block:2rem}.lecture-output:first-child{border-top:0}.lecture-output-current{margin-inline:-1rem;padding:1.1rem 1rem 1.1rem .8rem;border-top-color:color-mix(in srgb,var(--trace-highlight) 55%,Canvas);border-inline-start:.35rem solid var(--trace-highlight);background:linear-gradient(90deg,color-mix(in srgb,var(--trace-highlight) 18%,Canvas),transparent 78%)}.lecture-output-current+.lecture-output{border-top-color:color-mix(in srgb,var(--trace-highlight) 28%,Canvas)}.view-presenter .lecture-output:not(.lecture-output-current){opacity:.42}.view-reader .lecture-output{opacity:1;border-top:0}.view-reader .lecture-output-current{margin-inline:0;padding:.85rem 0;border-inline-start:0;background:none}
+pre.code{background:#8881;border-radius:2px;padding:.75rem;overflow:auto}
 .lecture-code{margin:1rem 0}.lecture-code figcaption{font-weight:600}
 .lecture-media{margin:1rem 0}.lecture-media img,.lecture-media video{display:block;max-width:100%;height:auto}.lecture-media figcaption{margin-top:.5rem}
-.lecture-browser-window{border:1px solid #8884;border-radius:8px;padding:1rem;margin:1rem 0;background:#8881}.lecture-browser-window h3{margin:.1rem 0 .5rem}.browser-window-url{overflow-wrap:anywhere;word-break:break-word}.browser-window-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.browser-window-actions a{padding:.4rem .8rem}.browser-window-status{min-height:1.4em;margin:.6rem 0 0}
-.lecture-table{overflow:auto;max-height:480px;margin:1rem 0;border:1px solid #8884;border-radius:6px}
-.lecture-table table{border-collapse:collapse;width:100%;text-align:left}
-.lecture-table caption{text-align:left;padding:.75rem;font-weight:600}
-.lecture-table th,.lecture-table td{padding:.5rem .75rem;border-top:1px solid #8884;vertical-align:top;min-width:8ch;max-width:35ch;overflow-wrap:anywhere}
-.lecture-table thead{position:sticky;top:0;background:Canvas}.lecture-table tbody tr:nth-child(even){background:#8881}
-.lecture-table th{white-space:nowrap}
-pre.term{background:#111;color:#eee;border-radius:8px;padding:.75rem;overflow:auto;max-height:320px}
-.muted{opacity:.7;font-size:.9em}
-.viewbar{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin:1rem 0}
-.viewbar select{font:inherit;color:CanvasText;background:Canvas;border:1px solid #888;border-radius:6px;padding:.35rem .5rem}
-.viewbar select:focus-visible{outline:3px solid #0969da;outline-offset:2px}
-body[data-view=reader] #stepbar{display:none}
-body[data-view=reader] #stage{border:0;padding:0}
-body[data-view=presenter] #stage{font-size:1.35rem;min-height:60vh;padding:1.5rem}
-body:not([data-view=inspector]) #help{display:none}
-@media(max-width:900px){#trace-layout{grid-template-columns:1fr}}
-@media(max-width:600px){body{padding:1rem}body[data-view=presenter] #stage{font-size:1.1rem;padding:1rem}}
+.lecture-browser-window{border-block:1px solid color-mix(in srgb,CanvasText 24%,Canvas);padding:1rem 0;margin:1rem 0;background:none}.lecture-browser-window h3{margin:.1rem 0 .5rem}.browser-window-url{overflow-wrap:anywhere;word-break:break-word}.browser-window-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.browser-window-actions a{padding:.35rem .65rem}.browser-window-status{min-height:1.4em;margin:.6rem 0 0}
+.lecture-table{overflow:auto;max-height:480px;margin:1rem 0;border:1px solid #8884;border-radius:2px}
+.lecture-table table{border-collapse:collapse;width:100%;text-align:left}.lecture-table caption{text-align:left;padding:.75rem;font-weight:600}.lecture-table th,.lecture-table td{padding:.5rem .75rem;border-top:1px solid #8884;vertical-align:top;min-width:8ch;max-width:35ch;overflow-wrap:anywhere}.lecture-table thead{position:sticky;top:0;background:Canvas}.lecture-table tbody tr:nth-child(even){background:#8881}.lecture-table th{white-space:nowrap}
+pre.term{background:#111;color:#eee;border-radius:2px;padding:.75rem;overflow:auto;max-height:320px}
+.muted{opacity:.7;font-size:.9em}.viewbar{display:flex;flex-wrap:wrap;gap:.85rem 1.25rem;align-items:center;margin:0;padding:.7rem 0;border-bottom:1px solid color-mix(in srgb,CanvasText 18%,Canvas)}.viewbar label{font-size:.86em;letter-spacing:.02em}.viewbar select{font:inherit;color:CanvasText;background:Canvas;border:1px solid color-mix(in srgb,CanvasText 42%,Canvas);border-radius:2px;padding:.25rem .4rem}.viewbar select:focus-visible{outline:3px solid #0969da;outline-offset:2px}
+body[data-view=reader] #stepbar{display:none}body[data-view=reader] #stage{border:0;padding:0}body[data-view=presenter] #stage{font-size:1.35rem;min-height:60vh;padding:2rem 0 4rem}body:not([data-view=inspector]) #help{display:none}
+@media(max-width:900px){#trace-layout{grid-template-columns:1fr}#source-panel{padding-right:0}}
+@media(max-width:600px){body{padding:0 1rem 2rem}body[data-view=presenter] #stage{font-size:1.1rem;padding:1rem 0 2rem}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 """
 
@@ -152,7 +143,8 @@ function renderOutput(ev){
     if(p.component_type==="browser-window"){
       var props=p.props||{},action=props.action||"open",id=props.window_id||"reference",url=safeBrowserUrl(props.url),title=props.title||"Reference";
       if(action==="close")return '<section class="lecture-browser-window" data-browser-action="close" data-browser-id="'+esc(id)+'"><h3>Reference window: close request</h3><p class="muted">Window <code>'+esc(id)+'</code> is released when this step is reached.</p><p class="browser-window-status" role="status" aria-live="polite">Close request recorded.</p></section>';
-      return '<section class="lecture-browser-window" data-browser-action="open" data-browser-id="'+esc(id)+'" data-browser-url="'+esc(url)+'" data-browser-title="'+esc(title)+'" data-browser-width="'+esc(props.width||1200)+'" data-browser-height="'+esc(props.height||800)+'" data-browser-left="'+esc(props.left==null?"":props.left)+'" data-browser-top="'+esc(props.top==null?"":props.top)+'" data-browser-resizable="'+(props.resizable===false?"false":"true")+'" data-browser-focus="'+(props.focus===false?"false":"true")+'"><h3>'+esc(title)+'</h3><p class="browser-window-url"><span>Reference: </span><code>'+esc(url||"Blocked URL")+'</code></p><p class="muted">'+esc(props.width||1200)+' × '+esc(props.height||800)+(props.left!=null||props.top!=null?' · position '+esc(props.left==null?"auto":props.left)+', '+esc(props.top==null?"auto":props.top):'')+' · lectpy_'+esc(id)+'</p><div class="browser-window-actions"><button type="button" data-browser-open="1"'+(url?'':' disabled')+'>Open reference window</button><button type="button" data-browser-close="1">Close reference window</button>'+(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Open reference link</a>':'')+'</div><p class="browser-window-status" role="status" aria-live="polite">Ready to open from this control.</p></section>';
+      var opened=browserController&&browserController.get(id);
+      return '<section class="lecture-browser-window" data-browser-action="open" data-browser-id="'+esc(id)+'" data-browser-url="'+esc(url)+'" data-browser-title="'+esc(title)+'" data-browser-width="'+esc(props.width||1200)+'" data-browser-height="'+esc(props.height||800)+'" data-browser-left="'+esc(props.left==null?"":props.left)+'" data-browser-top="'+esc(props.top==null?"":props.top)+'" data-browser-resizable="'+(props.resizable===false?"false":"true")+'" data-browser-focus="'+(props.focus===false?"false":"true")+'"><h3>'+esc(title)+'</h3><p class="browser-window-url"><span>Reference: </span><code>'+esc(url||"Blocked URL")+'</code></p><p class="muted">'+esc(props.width||1200)+' × '+esc(props.height||800)+(props.left!=null||props.top!=null?' · position '+esc(props.left==null?"auto":props.left)+', '+esc(props.top==null?"auto":props.top):'')+' · lectpy_'+esc(id)+'</p><div class="browser-window-actions"><button type="button" data-browser-open="1"'+(url?'':' disabled')+'>'+(opened?'Focus reference window':'Open reference window')+'</button><button type="button" data-browser-close="1"'+(opened?'':' disabled')+'>Close reference window</button>'+(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Open reference link</a>':'')+'</div><p class="browser-window-status" role="status" aria-live="polite">'+(opened?'Opened by this step.':'Ready to open from this control.')+'</p></section>';
     }
     return '<div class="muted" role="note">Interactive component <code>'+esc(p.component_type||"")+'</code> — recorded fallback in static mode.</div>'
   }
@@ -179,17 +171,21 @@ function render(){
   var clearSeq=-1,i;
   for(i=0;i<events.length;i++){if(events[i].kind==="clear"&&events[i].seq<=endSeq&&events[i].seq>clearSeq){clearSeq=events[i].seq}}
   var upto=events.filter(function(e){return e.kind!=="step"&&e.kind!=="clear"&&e.kind!=="inspect"&&e.kind!=="session_start"&&e.kind!=="session_end"&&e.kind!=="snapshot"&&e.seq<=endSeq&&e.seq>clearSeq});
+  var priorSeqs={};
+  if(view!=="reader"&&idx>0)outputEventsAt(idx-1).forEach(function(e){priorSeqs[e.seq]=true});
   var p=(s&&s.payload)||{};
   var loc=(p.func||"")+" @ line "+(p.line||"?");
   if(s&&view==="inspector"){h+='<p class="muted">'+esc(loc)+'</p>'}
   var locals=p.locals||{};
   var keys=Object.keys(locals);
   if(keys.length&&view==="inspector"){h+='<details open><summary>Environment ('+keys.length+')</summary><pre class="code">'+esc(keys.map(function(k){return k+" = "+locals[k]}).join("\\n"))+'</pre></details>'}
-  upto.forEach(function(ev){h+=renderOutput(ev)});
+  upto.forEach(function(ev){var current=!priorSeqs[ev.seq];h+='<article class="lecture-output'+(current?' lecture-output-current':'')+'" data-output-seq="'+ev.seq+'"'+(current?' aria-current="step"':'')+'>'+renderOutput(ev)+'</article>'});
   var insp=events.filter(function(e){return e.kind==="inspect"&&e.seq<=endSeq&&e.seq>clearSeq}).slice(-8);
   if(insp.length&&view==="inspector"){h+='<details><summary>Inspected values</summary><pre class="code">'+esc(insp.map(function(e){return (e.payload.name||"?")+" = "+(e.payload.summary||"")}).join("\\n"))+'</pre></details>'}
   boardDisposers.forEach(function(dispose){dispose()});boardDisposers=[];
   stage.innerHTML=h||'<p class="muted">No content recorded.</p>';
+  var activeOutput=stage.querySelector('.lecture-output-current');
+  if(activeOutput&&view==='presenter'&&!reduced){try{activeOutput.scrollIntoView({block:'center'})}catch(e){}}
   upto.forEach(function(ev){
     if(ev.kind!=="component"||(ev.payload||{}).component_type!=="whiteboard")return;
     var host=stage.querySelector('[data-whiteboard="'+ev.seq+'"]'),props=ev.payload.props||{};
@@ -208,7 +204,7 @@ function render(){
     var status=card.querySelector('.browser-window-status');
     function setStatus(message){if(status)status.textContent=message}
     if(action==='close'){
-      setStatus(browserController.close(id).message);
+      setStatus(browserController.get(id)?browserController.close(id).message:'Reference window is closed.');
       return;
     }
     var spec={window_id:id,url:card.getAttribute('data-browser-url')||'',title:card.getAttribute('data-browser-title')||'Reference',width:Number(card.getAttribute('data-browser-width')),height:Number(card.getAttribute('data-browser-height')),left:card.getAttribute('data-browser-left')===''?undefined:Number(card.getAttribute('data-browser-left')),top:card.getAttribute('data-browser-top')===''?undefined:Number(card.getAttribute('data-browser-top')),resizable:card.getAttribute('data-browser-resizable')!=='false',focus:card.getAttribute('data-browser-focus')!=='false'};
@@ -222,8 +218,23 @@ function render(){
   document.getElementById("over").disabled=idx>=steps.length-1;
   try{var u=new URL(location.href);u.searchParams.set("step",String(idx));history.replaceState(null,"",u)}catch(e){}
   meta.textContent=steps.length?"Step "+(idx+1)+" of "+steps.length:"Recorded document";
+ }
+function outputEventsAt(stepIndex){
+  var step=steps[stepIndex],end=(view==="reader"||!step||stepIndex>=steps.length-1)?Infinity:step.seq,clear=-1,i;
+  for(i=0;i<events.length;i++){if(events[i].kind==="clear"&&events[i].seq<=end&&events[i].seq>clear)clear=events[i].seq}
+  return events.filter(function(e){return e.kind!=="step"&&e.kind!=="clear"&&e.kind!=="inspect"&&e.kind!=="session_start"&&e.kind!=="session_end"&&e.kind!=="snapshot"&&e.seq<=end&&e.seq>clear});
 }
-function go(d){idx=Math.min(Math.max(idx+d,0),Math.max(steps.length-1,0));render()}
+function browserEventsAt(stepIndex){return outputEventsAt(stepIndex).filter(function(e){return e.kind==="component"&&(e.payload||{}).component_type==="browser-window"})}
+function applyBrowserEvent(ev){var props=(ev.payload||{}).props||{},action=props.action||"open";if(action==="close")browserController.close(props.window_id||"reference");else browserController.open(props)}
+function syncReferenceWindows(from,to){
+  if(!browserController||from===to||view==="reader")return;
+  var target=browserEventsAt(to),i,prior={};
+  if(to<from){browserController.closeAll();for(i=0;i<target.length;i++)applyBrowserEvent(target[i]);return}
+  browserEventsAt(from).forEach(function(e){prior[e.seq]=true});
+  for(i=0;i<target.length;i++)if(!prior[target[i].seq])applyBrowserEvent(target[i]);
+}
+function goTo(next){var target=Math.min(Math.max(next,0),Math.max(steps.length-1,0));syncReferenceWindows(idx,target);idx=target;render()}
+function go(d){goTo(idx+d)}
 document.getElementById("prev").addEventListener("click",function(){go(-1)});
 document.getElementById("next").addEventListener("click",function(){go(1)});
 document.getElementById("over").addEventListener("click",function(){go(1)});
@@ -245,7 +256,7 @@ document.addEventListener("keydown",function(e){
   if(e.target&&e.target.closest&&e.target.closest('input,textarea,select,button,a,[contenteditable=true],[role=slider],.lecture-table,.lecture-code pre'))return;
   if(["ArrowRight","ArrowLeft","Home","End"].indexOf(e.key)>=0)e.preventDefault();
   if(e.key==="ArrowRight"){go(1)}else if(e.key==="ArrowLeft"){go(-1)}
-  else if(e.key==="Home"){idx=0;render()}else if(e.key==="End"){idx=Math.max(steps.length-1,0);render()}
+  else if(e.key==="Home"){goTo(0)}else if(e.key==="End"){goTo(Math.max(steps.length-1,0))}
 });
 var reduced=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 if(!reduced){try{stage.scrollIntoView({block:"nearest"})}catch(e){}}
@@ -300,7 +311,7 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <select id="view-mode"><option value="reader">Reader</option><option value="presenter">Presenter</option><option value="inspector">Inspector</option></select>
 <label for="display-mode">Display</label>
 <select id="display-mode"><option value="system">System</option><option value="technical">Technical</option><option value="reading">Reading</option></select>
-<label for="highlight-mode">Highlight</label>
+<label for="highlight-mode">Output highlight</label>
 <select id="highlight-mode"><option value="amber">Amber</option><option value="blue">Blue</option><option value="mint">Mint</option><option value="violet">Violet</option></select>
 <button id="source-toggle" type="button" aria-pressed="false">Show source</button>
 <span id="view-status" class="muted" role="status"></span></div>

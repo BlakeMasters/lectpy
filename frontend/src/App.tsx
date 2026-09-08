@@ -26,6 +26,7 @@ import type { DisplayPresetId, HighlightColorId } from "./display";
 import { readLiveParams } from "./liveParams";
 import { ResourceProvider } from "./resources";
 import { WhiteboardSession } from "./Whiteboard";
+import { applyBrowserWindowEvent, referenceWindowController } from "./browserWindowRuntime";
 import type { ResourceEnvironment } from "./resources";
 import { displayIndex, parseView, resolveView } from "./views";
 import type { LectureBundle, LectureEvent } from "./protocol";
@@ -43,10 +44,12 @@ import {
 import { CommandRegistry, ExecutionRegistry, RendererRegistry } from "./registry";
 import {
   clampStep,
+  currentOutputSeqs,
   parseStepParam,
   stepEvents,
   stepIndexForReference,
   traceReference,
+  visibleBrowserWindowEvents,
   visibleInspects,
   visibleOutputs,
 } from "./select";
@@ -143,32 +146,54 @@ export default function App() {
     window.history.replaceState(null, "", url);
   }
 
-  const go = useCallback(
-    (next: number) => {
-      setIdx((prev) => {
-        const v = clampStep(typeof next === "number" ? next : prev, steps.length);
-        try {
-          const u = new URL(window.location.href);
-          u.searchParams.set("step", String(v));
-          window.history.replaceState(null, "", u);
-        } catch {
-          /* file:// or sandboxed contexts */
-        }
-        return v;
+  const syncReferenceWindows = useCallback(
+    (from: number, to: number) => {
+      if (!bundle || from === to || view === "reader") return;
+      const target = visibleBrowserWindowEvents(bundle.events, steps, to);
+      if (to < from) {
+        // Backward navigation is a state rewind: release handles that belong
+        // to later steps, then replay target commands in recorded order.
+        referenceWindowController.closeAll();
+        target.forEach((event) => applyBrowserWindowEvent(event));
+        return;
+      }
+      const prior = new Set(
+        visibleBrowserWindowEvents(bundle.events, steps, from).map((event) => event.seq),
+      );
+      target.filter((event) => !prior.has(event.seq)).forEach((event) => {
+        applyBrowserWindowEvent(event);
       });
     },
-    [steps.length],
+    [bundle, steps, view],
+  );
+
+  const go = useCallback(
+    (next: number) => {
+      const v = clampStep(typeof next === "number" ? next : idx, steps.length);
+      syncReferenceWindows(idx, v);
+      setIdx(v);
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.set("step", String(v));
+        window.history.replaceState(null, "", u);
+      } catch {
+        /* file:// or sandboxed contexts */
+      }
+    },
+    [idx, steps.length, syncReferenceWindows],
   );
 
   // Browser back/forward moves through steps.
   useEffect(() => {
     const onPop = () => {
-      setIdx(parseStepParam(window.location.search, steps.length));
+      const next = parseStepParam(window.location.search, steps.length);
+      syncReferenceWindows(idx, next);
+      setIdx(next);
       setRequestedView(parseView(new URLSearchParams(window.location.search).get("view")));
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [steps.length]);
+  }, [idx, steps.length, syncReferenceWindows]);
 
   // Every stepping action available by keyboard (WCAG 2.2 AA target).
   useEffect(() => {
@@ -185,6 +210,17 @@ export default function App() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [go, idx, steps.length, view]);
+
+  // Keep the teaching output, rather than the source pane, in the presenter’s
+  // reading position after a step transition.
+  useEffect(() => {
+    if (view !== "presenter" || !bundle) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>("#stage .lecture-output-current")
+        ?.scrollIntoView({ block: "center" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [bundle, idx, view]);
 
   const nextStep = useRef(() => go(idx + 1));
   nextStep.current = () => { if (view !== "reader") go(idx + 1); };
@@ -229,6 +265,7 @@ export default function App() {
   const sourceVisible = Boolean(bundle.source && showSource && view !== "reader");
   const shownIdx = displayIndex(view, idx, steps.length);
   const outputs = visibleOutputs(bundle.events, steps, shownIdx);
+  const activeOutputSeqs = new Set(currentOutputSeqs(bundle.events, steps, shownIdx));
   const inspects = visibleInspects(bundle.events, steps, shownIdx);
   const shellStyle = {
     "--lectpy-body-font": display.bodyFont,
@@ -268,7 +305,7 @@ export default function App() {
           </select>
         </label>
         <label>
-          Highlight{" "}
+          Output highlight{" "}
           <select
             value={highlightId}
             onChange={(e) => setHighlightId(e.target.value as HighlightColorId)}
@@ -336,7 +373,11 @@ export default function App() {
           {view === "inspector" && <EnvInspector locals={locals} />}
           <ResourceProvider environment={resourceEnvironment}>
             <WhiteboardSession key={bundle.events[0]?.execution_id ?? "empty"}>
-              <OutputView outputs={outputs} registry={regs.renderers} />
+              <OutputView
+                outputs={outputs}
+                activeOutputSeqs={activeOutputSeqs}
+                registry={regs.renderers}
+              />
             </WhiteboardSession>
           </ResourceProvider>
           {view === "inspector" && <InspectsList inspects={inspects} />}

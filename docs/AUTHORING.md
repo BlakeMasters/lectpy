@@ -152,7 +152,9 @@ The View selector in either viewer changes the presentation of the same recordin
 - Reader shows the final recorded page, without trace controls, source, or runtime
   state. It respects the last `clear()`; it is not a transcript of cleared pages.
 - Presenter keeps the selected step and navigation, with larger output typography
-  and no source/state panels. It is a presentation style, not a slide-layout system.
+  and no runtime state panel. Source context is optional via **Show source**; the
+  current rendered output, rather than the source line, is the visual focus. It is
+  a presentation style, not a slide-layout system.
 - Inspector shows the selected step, runtime state, and (in the React shell) source.
 
 Switching to Reader does not move the stored trace cursor. Switching back to
@@ -171,6 +173,26 @@ The `?view=` URL parameter overrides that default and can be combined with
 `?step=` (`?view=presenter&step=12`). Without a default, a traced lecture opens in
 Inspector and a document without steps opens in Reader. Existing v1 bundles work
 with all three views. Styles change only the viewer projection, never the log.
+Presenter output focus is derived from the selected step, so earlier output recedes
+while newly introduced output receives the current-line accent. The accent color
+and display font preset are session-local viewer choices; they do not alter a
+recording.
+
+## Step-driven reference windows
+
+`browser_open(url, ...)` and `browser_close(window_id)` are recorded as ordinary
+component events. In Presenter or Inspector, moving forward through a recorded
+open/close event attempts to apply it from the user's step-navigation action, so
+an author can make a reference page appear at the point where it is discussed and
+close it later. The named `lectpy_<window_id>` handle is reused and focused on
+repeat opens; moving backward rebuilds the recorded window state by closing owned
+handles and replaying the visible events. Reader keeps the same accessible
+fallback controls without stepping.
+
+Popup blockers may prevent the automatic attempt. Each reference output retains a
+Focus/Open action, a Close action where applicable, and an ordinary fallback link,
+so the lecture remains usable. Geometry is best-effort browser placement, and the
+remote page is never copied into the bundle.
 
 ## Portable media
 
@@ -261,12 +283,13 @@ def main():
 ```
 
 `browser_open()` records an intent; it never fetches the URL during authoring or
-automatically opens a popup during replay. Reader, Presenter, and Inspector render
-the same accessible control. The learner's explicit button action opens a named
-`lectpy_<window_id>` window, so repeated actions focus/reuse it. A later
-`browser_close()` event closes that viewer-owned window when its step is reached;
-the card's Close button is also available. Browsers that block scripted windows
-still expose an ordinary `target="_blank"` fallback link.
+opens a popup while a bundle is merely loading. Reader, Presenter, and Inspector
+render the same accessible control. A user-activated Presenter/Inspector step
+transition may apply the recorded open and focus/reuse a named
+`lectpy_<window_id>` window. The learner can also use the explicit Open/Focus
+button. A later `browser_close()` event closes that viewer-owned window when its
+step is reached; the card's Close button is also available. Browsers that block
+scripted windows still expose an ordinary `target="_blank"` fallback link.
 
 Only absolute `http://` and `https://` URLs are accepted. Window IDs, titles,
 dimensions, and screen positions are bounded at author time and normalized again

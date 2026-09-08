@@ -59,6 +59,37 @@ export function visibleOutputs(
   );
 }
 
+/** Output events introduced by the selected step.
+ *
+ * Trace steps are entry points: an output emitted while a line executes is
+ * visible on the following step. Comparing adjacent projections keeps that
+ * debugger behavior while giving the presenter one concrete output to mark as
+ * the current teaching moment.
+ */
+export function currentOutputSeqs(
+  events: LectureEvent[],
+  steps: LectureEvent[],
+  idx: number,
+): number[] {
+  const visible = visibleOutputs(events, steps, idx);
+  if (visible.length === 0) return [];
+  const prior = idx > 0 ? visibleOutputs(events, steps, idx - 1) : [];
+  const priorSeqs = new Set(prior.map((event) => event.seq));
+  return visible.filter((event) => !priorSeqs.has(event.seq)).map((event) => event.seq);
+}
+
+/** Browser-window commands visible at a selected step. */
+export function visibleBrowserWindowEvents(
+  events: LectureEvent[],
+  steps: LectureEvent[],
+  idx: number,
+): LectureEvent[] {
+  return visibleOutputs(events, steps, idx).filter((event) => {
+    const payload = event.payload ?? {};
+    return event.kind === "component" && payload["component_type"] === "browser-window";
+  });
+}
+
 export function visibleInspects(
   events: LectureEvent[],
   steps: LectureEvent[],
