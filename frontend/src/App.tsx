@@ -15,6 +15,7 @@ import {
   stepIndexForLine,
 } from "./components";
 import { readLiveParams } from "./liveParams";
+import { displayIndex, parseView, resolveView } from "./views";
 import type { LectureBundle, LectureEvent } from "./protocol";
 import {
   ComponentBlock,
@@ -67,6 +68,9 @@ export default function App() {
   const [bundle, setBundle] = useState<LectureBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
+  const [requestedView, setRequestedView] = useState(
+    () => parseView(new URLSearchParams(window.location.search).get("view")),
+  );
   const [liveLabel, setLiveLabel] = useState<string | null>(null);
   const liveMode = useMemo(
     () => new URLSearchParams(window.location.search).get("live") === "1",
@@ -105,6 +109,16 @@ export default function App() {
     () => (bundle ? stepEvents(bundle.events) : []),
     [bundle],
   );
+  const view = resolveView(requestedView, bundle?.manifest.view, steps.length);
+
+  function changeView(value: string) {
+    const next = parseView(value);
+    if (!next) return;
+    setRequestedView(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", next);
+    window.history.replaceState(null, "", url);
+  }
 
   const go = useCallback(
     (next: number) => {
@@ -125,7 +139,10 @@ export default function App() {
 
   // Browser back/forward moves through steps.
   useEffect(() => {
-    const onPop = () => setIdx(parseStepParam(window.location.search, steps.length));
+    const onPop = () => {
+      setIdx(parseStepParam(window.location.search, steps.length));
+      setRequestedView(parseView(new URLSearchParams(window.location.search).get("view")));
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [steps.length]);
@@ -133,6 +150,7 @@ export default function App() {
   // Every stepping action available by keyboard (WCAG 2.2 AA target).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (view === "reader") return;
       const t = e.target as HTMLElement | null;
       if (t?.closest("input, textarea, select, button, a, [contenteditable=true], [role=slider], .lecture-table, .lecture-code pre")) return;
       if (["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) e.preventDefault();
@@ -143,10 +161,10 @@ export default function App() {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [go, idx, steps.length]);
+  }, [go, idx, steps.length, view]);
 
   const nextStep = useRef(() => go(idx + 1));
-  nextStep.current = () => go(idx + 1);
+  nextStep.current = () => { if (view !== "reader") go(idx + 1); };
 
   // Keep the registered command pointed at current navigation state.
   useEffect(() => {
@@ -181,11 +199,12 @@ export default function App() {
   const payload = (s?.payload ?? {}) as Record<string, unknown>;
   const locals = (payload["locals"] ?? {}) as Record<string, string>;
   const currentLine = typeof payload["line"] === "number" ? (payload["line"] as number) : null;
-  const outputs = visibleOutputs(bundle.events, steps, idx);
-  const inspects = visibleInspects(bundle.events, steps, idx);
+  const shownIdx = displayIndex(view, idx, steps.length);
+  const outputs = visibleOutputs(bundle.events, steps, shownIdx);
+  const inspects = visibleInspects(bundle.events, steps, shownIdx);
 
   return (
-    <main className="shell">
+    <main className={`shell view-${view}`}>
       <header className="top">
         <h1>{bundle.manifest.title}</h1>
         <span className="muted">
@@ -193,6 +212,19 @@ export default function App() {
           {liveLabel ? ` · ${liveLabel}` : ""}
         </span>
       </header>
+      <div className="viewbar">
+        <label>
+          View{" "}
+          <select value={view} onChange={(e) => changeView(e.target.value)}>
+            <option value="reader">Reader</option>
+            <option value="presenter">Presenter</option>
+            <option value="inspector">Inspector</option>
+          </select>
+        </label>
+        <span className="muted" role="status">
+          {view === "reader" ? "Final recorded page" : view === "presenter" ? "Presentation with stepping" : "Source and state inspection"}
+        </span>
+      </div>
       {liveMode && liveInitial ? (
         <Suspense fallback={<p role="status">Loading live tools…</p>}>
           <LivePanel
@@ -205,7 +237,7 @@ export default function App() {
           />
         </Suspense>
       ) : null}
-      <StepBar
+      {view !== "reader" && <StepBar
         idx={idx}
         count={steps.length}
         onFirst={() => go(0)}
@@ -213,21 +245,21 @@ export default function App() {
         onNext={() => go(idx + 1)}
         onOver={() => go(idx + 1)}
         onLast={() => go(steps.length - 1)}
-      />
-      <div className={bundle.source ? "layout" : "layout document-layout"}>
+      />}
+      <div className={bundle.source && view === "inspector" ? "layout" : "layout document-layout"}>
         <section id="stage" tabIndex={0} aria-label="Lecture stage">
-          {s ? (
+          {view === "inspector" && (s ? (
             <p className="muted">
               {(payload["func"] as string) ?? ""} @ line {String(payload["line"] ?? "?")}
             </p>
           ) : (
             <p className="muted">Recorded document</p>
-          )}
-          <EnvInspector locals={locals} />
+          ))}
+          {view === "inspector" && <EnvInspector locals={locals} />}
           <OutputView outputs={outputs} registry={regs.renderers} />
-          <InspectsList inspects={inspects} />
+          {view === "inspector" && <InspectsList inspects={inspects} />}
         </section>
-        {bundle.source ? (
+        {bundle.source && view === "inspector" ? (
           <SourcePane
             source={bundle.source}
             currentLine={currentLine}
@@ -235,10 +267,10 @@ export default function App() {
           />
         ) : null}
       </div>
-      <p className="muted">
+      {view === "inspector" && <p className="muted">
         Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via{" "}
         <code>?step=N</code>. Reduced-motion respected.
-      </p>
+      </p>}
     </main>
   );
 }

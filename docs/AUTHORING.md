@@ -143,3 +143,30 @@ Wide tables scroll horizontally on narrow screens.
 These primitives emit compatible v1 text events with HTML plus a textual fallback.
 They need no additional Python packages, browser libraries, or network requests.
 Try `lecture build examples/data_story.py --provider python`.
+
+## Reader, presenter, and inspector views
+
+The View selector in either viewer changes the presentation of the same recording:
+
+- Reader shows the final recorded page, without trace controls, source, or runtime
+  state. It respects the last `clear()`; it is not a transcript of cleared pages.
+- Presenter keeps the selected step and navigation, with larger output typography
+  and no source/state panels. It is a presentation style, not a slide-layout system.
+- Inspector shows the selected step, runtime state, and (in the React shell) source.
+
+Switching to Reader does not move the stored trace cursor. Switching back to
+Presenter or Inspector restores that position. The selector uses native keyboard
+controls. In Reader, arrow/Home/End keys keep their normal page-scroll behavior.
+
+Choose an author default with `--view reader|presenter|inspector` when tracing or
+building, or set the project default:
+
+```toml
+[presentation]
+view = "reader"
+```
+
+The `?view=` URL parameter overrides that default and can be combined with
+`?step=` (`?view=presenter&step=12`). Without a default, a traced lecture opens in
+Inspector and a document without steps opens in Reader. Existing v1 bundles work
+with all three views. Styles change only the viewer projection, never the log.

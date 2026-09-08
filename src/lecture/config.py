@@ -44,6 +44,7 @@ class ProjectConfig:
     provider: str = "trace"
     profile: str = "local-trusted"
     policy_overrides: dict[str, Any] = field(default_factory=dict)
+    view: str | None = None
 
     def execution_policy(self, override: str | None = None) -> GrantedPolicy:
         # An explicit CLI profile selects that complete profile.
@@ -83,7 +84,7 @@ def load_project(
             data = tomllib.load(f)
     except (OSError, ValueError) as exc:
         raise ConfigError(f"cannot read {path}: {exc}") from exc
-    _table(data, "project", {"lecture", "runtimes", "policy", "export"})
+    _table(data, "project", {"lecture", "runtimes", "policy", "export", "presentation"})
     lecture = _table(data.get("lecture", {}), "lecture", {"format-version", "entry", "title"})
     version = lecture.get("format-version", 1)
     if type(version) is not int or version != 1:
@@ -138,6 +139,10 @@ def load_project(
     static = _table(exports.get("static", {}), "export.static", {"interactive-fallback"})
     if static.get("interactive-fallback", "recorded") != "recorded":
         raise ConfigError("export.static.interactive-fallback currently supports only 'recorded'")
-    config = ProjectConfig(path.parent, path, entry, title, provider, profile, overrides)
+    presentation = _table(data.get("presentation", {}), "presentation", {"view"})
+    view = presentation.get("view")
+    if view is not None and view not in ("reader", "presenter", "inspector"):
+        raise ConfigError("presentation.view must be reader, presenter, or inspector")
+    config = ProjectConfig(path.parent, path, entry, title, provider, profile, overrides, view)
     config.execution_policy()  # validate even for check-only usage
     return config

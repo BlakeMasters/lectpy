@@ -141,3 +141,24 @@ def test_file_without_project_keeps_default_behavior(tmp_path, monkeypatch):
     Path("lesson.py").write_text("def main():\n    x = 1\n", encoding="utf-8")
     assert load_project("lesson.py").path is None
     assert main(["build", "lesson.py"]) == 0
+
+
+def test_presentation_default_and_cli_override_roundtrip(tmp_path, monkeypatch):
+    from lecture.ir import LectureManifest
+
+    project(tmp_path, '[lecture]\nentry="lesson.py"\n[presentation]\nview="reader"\n')
+    monkeypatch.chdir(tmp_path)
+    assert main(["build"]) == 0
+    manifest = json.loads(Path("dist/lesson/lecture.json").read_text())["manifest"]
+    assert manifest["view"] == "reader"
+    assert LectureManifest.from_dict(manifest).to_dict()["view"] == "reader"
+    assert main(["trace", "--view", "presenter"]) == 0
+    manifest = json.loads(Path("var/traces/lesson.json").read_text())["manifest"]
+    assert manifest["view"] == "presenter"
+    assert "view" not in LectureManifest().to_dict()
+
+
+def test_unknown_presentation_style_is_rejected(tmp_path):
+    path = project(tmp_path, '[presentation]\nview="slides-ish"')
+    with pytest.raises(ConfigError, match="presentation.view"):
+        load_project(config_path=str(path))

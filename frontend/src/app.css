@@ -9,6 +9,7 @@ body {
 .shell { min-height: 100vh; }
 header.top {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   align-items: baseline;
   border-bottom: 1px solid #8884;
@@ -41,6 +42,15 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   align-items: start;
 }
 .document-layout { grid-template-columns: minmax(0, 1fr); }
+.viewbar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin: 1rem 0; }
+.viewbar select { font: inherit; color: CanvasText; background: Canvas; border: 1px solid #888; border-radius: 6px; padding: 0.35rem 0.5rem; }
+.viewbar select:focus-visible { outline: 3px solid #0969da; outline-offset: 2px; }
+.view-reader #stage { border: 0; padding: 0; }
+.view-presenter #stage { font-size: 1.35rem; min-height: 60vh; padding: 1.5rem; }
+@media (max-width: 600px) {
+  body { padding: 1rem; }
+  .view-presenter #stage { font-size: 1.1rem; padding: 1rem; }
+}
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
 }

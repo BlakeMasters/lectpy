@@ -28,9 +28,13 @@ class LectureManifest:
     runtime: str = "trace"
     policy_profile: str = "local-trusted"
     plugin_ids: list[str] = field(default_factory=list)
+    view: str | None = None
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        result = asdict(self)
+        if self.view is None:
+            result.pop("view")
+        return result
 
     @classmethod
     def from_dict(cls, d: dict) -> LectureManifest:
@@ -43,6 +47,7 @@ class LectureManifest:
             runtime=str(d.get("runtime", "trace")),
             policy_profile=str(d.get("policy_profile", "local-trusted")),
             plugin_ids=list(d.get("plugin_ids", [])),
+            view=d.get("view"),
         )
 
 

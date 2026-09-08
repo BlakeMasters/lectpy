@@ -90,6 +90,7 @@ def cmd_trace(args: argparse.Namespace) -> int:
         source_sha256=sha256_file(src),
         runtime=provider,
         policy_profile=policy.profile,
+        view=args.view or config.view,
     )
     payload = {"manifest": manifest.to_dict(), "events": ctx.log.to_list()}
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -115,6 +116,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         source_sha256=sha256_file(src),
         runtime=provider,
         policy_profile="static",
+        view=args.view or config.view,
     )
     cp = Checkpoint(
         flavor="recorded",
@@ -235,6 +237,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("source", nargs="?")
     s.add_argument("--out", default=None)
     s.add_argument("--title", default=None)
+    s.add_argument("--view", choices=("reader", "presenter", "inspector"), default=None)
     s.add_argument("--config", default=None)
     s.add_argument("--provider", choices=("trace", "python"), default=None)
     s.add_argument("--policy", default=None)
@@ -245,6 +248,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("source", nargs="?")
     s.add_argument("--out", default=None)
     s.add_argument("--title", default=None)
+    s.add_argument("--view", choices=("reader", "presenter", "inspector"), default=None)
     s.add_argument("--config", default=None)
     s.add_argument("--provider", choices=("trace", "python"), default=None)
     s.add_argument("--policy", default=None)

@@ -10,6 +10,7 @@
     "source_sha256": { "type": "string" },
     "created": { "type": "number" },
     "runtime": { "type": "string" },
+    "view": { "type": "string", "enum": ["reader", "presenter", "inspector"] },
     "policy_profile": {
       "type": "string",
       "enum": ["static", "local-trusted", "local-restricted", "classroom", "public-untrusted"]

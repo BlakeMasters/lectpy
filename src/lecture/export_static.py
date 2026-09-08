@@ -23,7 +23,7 @@ from .ir import Checkpoint, LectureManifest
 VIEWER_CSS = """
 :root{color-scheme:light dark}
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0 auto;max-width:900px;padding:1.5rem;line-height:1.55}
-header.top{display:flex;gap:1rem;align-items:baseline;border-bottom:1px solid #8884;padding-bottom:.5rem}
+header.top{display:flex;flex-wrap:wrap;gap:1rem;align-items:baseline;border-bottom:1px solid #8884;padding-bottom:.5rem}
 #stepbar{display:flex;gap:.5rem;align-items:center;margin:1rem 0;flex-wrap:wrap}
 button{padding:.4rem .8rem;border:1px solid #888;border-radius:6px;background:Canvas;color:CanvasText;cursor:pointer}
 button:disabled{opacity:.45;cursor:default}
@@ -39,6 +39,14 @@ pre.code{background:#8881;border-radius:8px;padding:.75rem;overflow:auto}
 .lecture-table th{white-space:nowrap}
 pre.term{background:#111;color:#eee;border-radius:8px;padding:.75rem;overflow:auto;max-height:320px}
 .muted{opacity:.7;font-size:.9em}
+.viewbar{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin:1rem 0}
+.viewbar select{font:inherit;color:CanvasText;background:Canvas;border:1px solid #888;border-radius:6px;padding:.35rem .5rem}
+.viewbar select:focus-visible{outline:3px solid #0969da;outline-offset:2px}
+body[data-view=reader] #stepbar{display:none}
+body[data-view=reader] #stage{border:0;padding:0}
+body[data-view=presenter] #stage{font-size:1.35rem;min-height:60vh;padding:1.5rem}
+body:not([data-view=inspector]) #help{display:none}
+@media(max-width:600px){body{padding:1rem}body[data-view=presenter] #stage{font-size:1.1rem;padding:1rem}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 """
 
@@ -50,6 +58,13 @@ var bundle=JSON.parse(DATA.textContent);
 var events=bundle.events||[];
 var steps=events.filter(function(e){return e.kind==="step"});
 var params=new URLSearchParams(location.search);
+function resolveView(value){
+  var valid=["reader","presenter","inspector"];
+  if(valid.indexOf(value)>=0)return value;
+  var configured=(bundle.manifest||{}).view;
+  return valid.indexOf(configured)>=0?configured:(steps.length?"inspector":"reader");
+}
+var view=resolveView(params.get("view"));
 var idx=Math.min(Math.max(parseInt(params.get("step")||"0",10)||0,0),Math.max(steps.length-1,0));
 var stage=document.getElementById("stage");
 var pos=document.getElementById("pos");
@@ -72,24 +87,27 @@ function renderOutput(ev){
   return ""
 }
 function render(){
+  document.body.dataset.view=view;
+  document.getElementById("view-mode").value=view;
+  document.getElementById("view-status").textContent=view==="reader"?"Final recorded page":view==="presenter"?"Presentation with stepping":"State inspection";
   var s=steps[idx];
   var h="";
   // The final step owns the tail: outputs of the last source line (and crash
   // errors) have no later step to attach to, so they join the last step.
   // Anything at or before a `clear` event is dropped from outputs/inspects.
-  var endSeq=(!s||idx>=steps.length-1)?Infinity:s.seq;
+  var endSeq=(view==="reader"||!s||idx>=steps.length-1)?Infinity:s.seq;
   var clearSeq=-1,i;
   for(i=0;i<events.length;i++){if(events[i].kind==="clear"&&events[i].seq<=endSeq&&events[i].seq>clearSeq){clearSeq=events[i].seq}}
   var upto=events.filter(function(e){return e.kind!=="step"&&e.kind!=="clear"&&e.kind!=="inspect"&&e.kind!=="session_start"&&e.kind!=="session_end"&&e.kind!=="snapshot"&&e.seq<=endSeq&&e.seq>clearSeq});
   var p=(s&&s.payload)||{};
   var loc=(p.func||"")+" @ line "+(p.line||"?");
-  if(s){h+='<p class="muted">'+esc(loc)+'</p>'}
+  if(s&&view==="inspector"){h+='<p class="muted">'+esc(loc)+'</p>'}
   var locals=p.locals||{};
   var keys=Object.keys(locals);
-  if(keys.length){h+='<details open><summary>Environment ('+keys.length+')</summary><pre class="code">'+esc(keys.map(function(k){return k+" = "+locals[k]}).join("\\n"))+'</pre></details>'}
+  if(keys.length&&view==="inspector"){h+='<details open><summary>Environment ('+keys.length+')</summary><pre class="code">'+esc(keys.map(function(k){return k+" = "+locals[k]}).join("\\n"))+'</pre></details>'}
   upto.forEach(function(ev){h+=renderOutput(ev)});
   var insp=events.filter(function(e){return e.kind==="inspect"&&e.seq<=endSeq&&e.seq>clearSeq}).slice(-8);
-  if(insp.length){h+='<details><summary>Inspected values</summary><pre class="code">'+esc(insp.map(function(e){return (e.payload.name||"?")+" = "+(e.payload.summary||"")}).join("\\n"))+'</pre></details>'}
+  if(insp.length&&view==="inspector"){h+='<details><summary>Inspected values</summary><pre class="code">'+esc(insp.map(function(e){return (e.payload.name||"?")+" = "+(e.payload.summary||"")}).join("\\n"))+'</pre></details>'}
   stage.innerHTML=h||'<p class="muted">No content recorded.</p>';
   pos.textContent=steps.length?(idx+1)+" / "+steps.length:"Document";
   document.getElementById("prev").disabled=idx<=0;
@@ -102,7 +120,18 @@ function go(d){idx=Math.min(Math.max(idx+d,0),Math.max(steps.length-1,0));render
 document.getElementById("prev").addEventListener("click",function(){go(-1)});
 document.getElementById("next").addEventListener("click",function(){go(1)});
 document.getElementById("over").addEventListener("click",function(){go(1)});
+document.getElementById("view-mode").addEventListener("change",function(e){
+  view=resolveView(e.target.value);
+  try{var u=new URL(location.href);u.searchParams.set("view",view);history.replaceState(null,"",u)}catch(error){}
+  render();
+});
+window.addEventListener("popstate",function(){
+  var p=new URLSearchParams(location.search);
+  idx=Math.min(Math.max(parseInt(p.get("step")||"0",10)||0,0),Math.max(steps.length-1,0));
+  view=resolveView(p.get("view"));render();
+});
 document.addEventListener("keydown",function(e){
+  if(view==="reader")return;
   if(e.target&&e.target.closest&&e.target.closest('input,textarea,select,button,a,[contenteditable=true],[role=slider],.lecture-table,.lecture-code pre'))return;
   if(["ArrowRight","ArrowLeft","Home","End"].indexOf(e.key)>=0)e.preventDefault();
   if(e.key==="ArrowRight"){go(1)}else if(e.key==="ArrowLeft"){go(-1)}
@@ -132,6 +161,9 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 </head>
 <body>
 <header class="top"><h1>{html.escape(title)}</h1><span class="muted">static replay · lectpy v0.1</span></header>
+<div class="viewbar"><label for="view-mode">View</label>
+<select id="view-mode"><option value="reader">Reader</option><option value="presenter">Presenter</option><option value="inspector">Inspector</option></select>
+<span id="view-status" class="muted" role="status"></span></div>
 <div id="stepbar" role="toolbar" aria-label="Lecture stepping">
 <button id="prev" aria-label="Previous step">← Back</button>
 <button id="next" aria-label="Next step">Forward →</button>
@@ -140,7 +172,7 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <span id="meta" class="muted" role="status" aria-live="polite"></span>
 </div>
 <main id="stage" tabindex="0" aria-label="Lecture stage"></main>
-<p class="muted">Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via <code>?step=N</code>. Reduced-motion respected. Plots/components show recorded fallbacks.</p>
+<p id="help" class="muted">Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via <code>?step=N</code>. Reduced-motion respected. Plots/components show recorded fallbacks.</p>
 <script id="lecture-data" type="application/json">{embedded}</script>
 <script>{VIEWER_JS}</script>
 </body>

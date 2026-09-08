@@ -31,6 +31,7 @@ export interface LectureManifest {
   source_sha256: string;
   created?: number;
   runtime?: string;
+  view?: "reader" | "presenter" | "inspector";
   policy_profile?: "static" | "local-trusted" | "local-restricted" | "classroom" | "public-untrusted";
   plugin_ids?: string[];
 }
