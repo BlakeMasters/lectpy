@@ -1,18 +1,13 @@
 [lecture]
 format-version = 1
+entry = "examples/lecture_01.py"
+title = "Gradient descent"
 
 [runtimes.python]
 provider = "trace"
-kernel = "python3"
-
-[runtimes.typescript]
-provider = "deno"
 
 [policy.default]
-network = "deny"
-process = "sandbox"
-filesystem-read = ["./assets", "./data"]
-filesystem-write = ["./var"]
+profile = "local-trusted"
 
 [export.static]
 interactive-fallback = "recorded"

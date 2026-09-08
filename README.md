@@ -25,6 +25,12 @@ lecture build examples/lecture_01.py --out dist/lecture_01
 lecture serve dist/lecture_01
 ```
 
+`lecture.toml` can provide the entrypoint, title, and execution settings. Run
+`lecture check` to validate a project without executing it, or `lecture build`
+to build the configured entrypoint. For a document with no line stepping, use
+`lecture build examples/document.py --provider python`. See
+[Authoring](docs/AUTHORING.md) for configuration precedence and supported settings.
+
 ## Design (summary)
 
 ```

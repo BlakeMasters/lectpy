@@ -36,23 +36,73 @@ def main():
     # @step-over
 ```
 
-Advanced config lives in `lecture.toml`, not per-call:
+Project settings live in `lecture.toml`:
 
 ```toml
 [lecture]
 format-version = 1
+entry = "lecture_01.py"
+title = "Gradient descent"
 
 [runtimes.python]
-provider = "trace"   # or "jupyter" (v0.3+)
+provider = "trace"   # or "python" to render main() without line stepping
 
 [policy.default]
-network = "deny"
-process = "sandbox"
+profile = "local-trusted"
 
 [export.static]
 interactive-fallback = "recorded"
 ```
 
-Levels: **A** pure Python → **B** Python + stock components (sliders, plots,
-terminals, quizzes) → **C** custom TS/Web-Component plugin (full SDK + dev
-server, v0.4+).
+Run `lecture check` to validate configuration and source syntax without running
+the lecture. Run `lecture build` to execute the configured entry and produce an
+offline replay in `dist/<entry-name>/`. `lecture trace` writes a JSON history to
+`var/traces/<entry-name>.json`. Both use the same configured provider.
+
+The `trace` provider records Python line steps and visible locals. The `python`
+provider calls the same synchronous `main()` and records only emitted outputs;
+use it for articles, reports, and pages where the code is an implementation
+detail. Both use the caller's Python environment and working directory. Relative
+file I/O inside the author script is ordinary Python; anchor data paths with
+`Path(__file__).parent` when the project may be launched from another directory.
+The Python provider does not install a tracer or impose a wall-clock interrupt
+on `main()`; trace wall-time checks occur at traced lines.
+
+Configuration is discovered by walking upward from the explicit source file, or
+from the current directory when no source is supplied. `--config path/to/lecture.toml`
+selects a particular file. Configured entry and filesystem paths resolve relative
+to that file. Default output/artifact directories are rooted there too. Explicit
+CLI paths resolve relative to the current directory.
+
+Use `--title`, `--provider trace|python`, a positional source, or `--out` to
+override a project default. `--policy local-trusted` selects that entire execution
+profile, overriding configured policy fields. The execution profile governs the
+authoring run; `lecture build` always produces a static delivery manifest.
+`--policy static` reports a configuration error before executing anything.
+
+`[policy.default]` also accepts `network`, `process`, `filesystem-read`,
+`filesystem-write`, `allow-network-hosts`, `max-output-bytes`, `max-events`, and
+`max-wall-seconds`. Paths and host lists are string arrays. Limits are positive
+integers, except wall time which may be fractional. These settings govern SDK and
+provider operations; they do not sandbox arbitrary local Python code.
+
+Unknown or not-yet-implemented settings produce a useful error instead of being
+silently ignored. Jupyter remains available through the broker API; it is not yet
+a CLI document provider. This replaces older scaffolds that included placeholder
+`kernel` and TypeScript runtime settings.
+
+CLI exit codes: `0` means success, `1` means execution recorded an error (the
+partial replay is retained for inspection), and `2` means a configuration, syntax
+check, or filesystem error. Renderers also display errors that occurred before
+the first trace step.
+
+Text, media, and inspection outputs can be published without any trace history:
+
+```bash
+lecture build examples/document.py --provider python --title "A Python document"
+lecture serve dist/document
+```
+
+Creation levels: **A** plain Python outputs are supported today. **B** stock
+interactive components and **C** custom component plugins are being developed;
+the current `component()` API records a descriptor and a static placeholder.

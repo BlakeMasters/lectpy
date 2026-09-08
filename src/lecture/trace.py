@@ -66,10 +66,13 @@ class TraceExecutor:
         policy: GrantedPolicy | None = None,
         artifacts: ArtifactStore | None = None,
         max_steps: int = MAX_STEPS_DEFAULT,
+        *,
+        record_steps: bool = True,
     ) -> None:
         self.policy = policy or default_policy("local-trusted")
         self.artifacts = artifacts
         self.max_steps = max_steps
+        self.record_steps = record_steps
         self.steps: list[TraceStep] = []
 
     def trace_file(self, path: str | Path) -> ExecutionContext:
@@ -80,7 +83,10 @@ class TraceExecutor:
         directives = _parse_comment_directives(source_lines)
 
         ctx = ExecutionContext(source_file=str(path), policy=self.policy, artifacts=self.artifacts)
-        ctx.emit("session_start", {"source_file": str(path), "runtime": "trace"})
+        ctx.emit(
+            "session_start",
+            {"source_file": str(path), "runtime": "trace" if self.record_steps else "python"},
+        )
 
         # Load module without executing main yet (mirrors edtrace: import, then trace main()).
         module_name = f"_lecture_target_{ctx.execution_id}"
@@ -289,7 +295,8 @@ class TraceExecutor:
             return tracer
 
         old_trace = sys.gettrace()
-        sys.settrace(tracer)
+        if self.record_steps:
+            sys.settrace(tracer)
         try:
             with execution_scope(ctx):
                 try:
@@ -304,7 +311,8 @@ class TraceExecutor:
                 else:
                     ctx.emit("session_end", {"status": "ok", "steps": len(self.steps)})
         finally:
-            sys.settrace(old_trace)
+            if self.record_steps:
+                sys.settrace(old_trace)
             linecache.clearcache()
             sys.modules.pop(module_name, None)
         return ctx
