@@ -73,6 +73,7 @@ var pos=document.getElementById("pos");
 var meta=document.getElementById("meta");
 var boardStates=new Map(),boardDisposers=[];
 var browserController=typeof BrowserWindowController==="function"?new BrowserWindowController():null;
+function safeBrowserUrl(value){try{var u=new URL(String(value||""));return u.protocol==="http:"||u.protocol==="https:"?u.href:""}catch(e){return ""}}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function renderOutput(ev){
   var p=ev.payload||{};
@@ -89,7 +90,7 @@ function renderOutput(ev){
   if(ev.kind==="component"){
     if(p.component_type==="whiteboard")return '<div data-whiteboard="'+ev.seq+'"></div>';
     if(p.component_type==="browser-window"){
-      var props=p.props||{},action=props.action||"open",id=props.window_id||"reference",url=props.url||"",title=props.title||"Reference";
+      var props=p.props||{},action=props.action||"open",id=props.window_id||"reference",url=safeBrowserUrl(props.url),title=props.title||"Reference";
       if(action==="close")return '<section class="lecture-browser-window" data-browser-action="close" data-browser-id="'+esc(id)+'"><h3>Reference window: close request</h3><p class="muted">Window <code>'+esc(id)+'</code> is released when this step is reached.</p><p class="browser-window-status" role="status" aria-live="polite">Close request recorded.</p></section>';
       return '<section class="lecture-browser-window" data-browser-action="open" data-browser-id="'+esc(id)+'" data-browser-url="'+esc(url)+'" data-browser-title="'+esc(title)+'" data-browser-width="'+esc(props.width||1200)+'" data-browser-height="'+esc(props.height||800)+'" data-browser-left="'+esc(props.left==null?"":props.left)+'" data-browser-top="'+esc(props.top==null?"":props.top)+'" data-browser-resizable="'+(props.resizable===false?"false":"true")+'" data-browser-focus="'+(props.focus===false?"false":"true")+'"><h3>'+esc(title)+'</h3><p class="browser-window-url"><span>Reference: </span><code>'+esc(url||"Blocked URL")+'</code></p><p class="muted">'+esc(props.width||1200)+' × '+esc(props.height||800)+(props.left!=null||props.top!=null?' · position '+esc(props.left==null?"auto":props.left)+', '+esc(props.top==null?"auto":props.top):'')+' · lectpy_'+esc(id)+'</p><div class="browser-window-actions"><button type="button" data-browser-open="1"'+(url?'':' disabled')+'>Open reference window</button><button type="button" data-browser-close="1">Close reference window</button>'+(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Open reference link</a>':'')+'</div><p class="browser-window-status" role="status" aria-live="polite">Ready to open from this control.</p></section>';
     }
