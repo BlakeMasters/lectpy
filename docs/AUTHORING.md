@@ -17,7 +17,8 @@ def main():
 ```
 
 Primitives: `text`, `code`, `table`, `note`, `image`, `video`, `link`, `plot`, `inspect_value`,
-`clear`, `system_text`, `component`, `whiteboard`, `terminal`. All emit typed events on the
+`clear`, `system_text`, `component`, `whiteboard`, `browser_open`, `browser_close`, `terminal`.
+All emit typed events on the
 scoped `ExecutionContext` — never a process-global accumulator.
 
 Directives (edtrace-compatible, plus structured API):
@@ -236,3 +237,44 @@ To keep memory predictable, boards allow 2,000 objects, 100,000 total points,
 geometry and text size). Lift the pen to begin another
 stroke if a stroke reaches its limit. Canvas resolution is capped independently
 of display scale; this is a bounded whiteboard, not an infinite-canvas editor.
+
+## Reference browser windows
+
+Use a reference window when a learner should consult an external page alongside the
+lecture without embedding or downloading that page:
+
+```python
+from lecture import browser_close, browser_open, note
+
+def main():
+    browser_open(
+        "https://arxiv.org/",
+        window_id="paper",
+        title="arXiv reference",
+        width=1100,
+        height=760,
+        left=80,
+        top=60,
+    )
+    note("Continue stepping with the reference open; close it when finished.")
+    browser_close("paper")
+```
+
+`browser_open()` records an intent; it never fetches the URL during authoring or
+automatically opens a popup during replay. Reader, Presenter, and Inspector render
+the same accessible control. The learner's explicit button action opens a named
+`lectpy_<window_id>` window, so repeated actions focus/reuse it. A later
+`browser_close()` event closes that viewer-owned window when its step is reached;
+the card's Close button is also available. Browsers that block scripted windows
+still expose an ordinary `target="_blank"` fallback link.
+
+Only absolute `http://` and `https://` URLs are accepted. Window IDs, titles,
+dimensions, and screen positions are bounded at author time and normalized again
+by the browser client. Position is a best-effort browser hint, not a guarantee
+across operating systems or multi-monitor setups. The page is external to the
+lecture: no remote content is copied into the bundle, and authors should not put
+secrets or private data in the URL.
+
+The event remains a normal v1 `component` descriptor, so older readers show the
+recorded component fallback rather than failing the entire replay. See
+[browser_reference.py](../examples/browser_reference.py) for a runnable example.

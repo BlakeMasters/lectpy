@@ -34,20 +34,26 @@ to build the configured entrypoint. For a document with no line stepping, use
 ## What you can create
 
 Build traced technical explanations or plain Python documents with text, code,
-bounded tables, local media, and pen-aware whiteboards. Both viewers offer Reader,
-Presenter and Inspector styles. Local assets travel with static exports.
+bounded tables, local media, pen-aware whiteboards, and user-controlled reference
+browser windows. Both viewers offer Reader, Presenter and Inspector styles. Local
+assets travel with static exports.
 
 ```python
-from lecture import image, whiteboard
+from lecture import browser_close, browser_open, image, whiteboard
 
 def main():
     image("assets/diagram.svg", alt="Describe the diagram here")
     whiteboard("Working notes")
+    browser_open("https://arxiv.org/", window_id="paper", width=1100, height=760)
+    browser_close("paper")
 ```
 
 Whiteboards provide pen/highlighter, eraser, shapes, text, undo/redo and
 SVG/PNG/editable-JSON export. Drawings survive stepping but must be saved before
 reloading. Pair styluses through the OS; pressure depends on browser/device support.
+Reference windows render an accessible open/focus control, preserve a named window,
+accept bounded size/position options, and can be closed by a later recorded event.
+Popup-blocked browsers retain a normal fallback link.
 
 ## Design (summary)
 
@@ -90,7 +96,7 @@ src/lecture/          Python SDK + microkernel core
   export_static.py    static bundle writer (lecture.json + artifacts + index.html)
   cli.py              lecture init|trace|build|serve|doctor|test
 schemas/              JSON schemas (event v1, manifest v1)
-frontend/             React shell, lazy live tools, and frontend tests
+frontend/             React shell, lazy tools, and frontend tests
 examples/             executable .py lectures
 tests/                protocol / replay-golden / security / perf-smoke suites
 docs/                 architecture / roadmap / security / authoring
@@ -102,7 +108,7 @@ The package is pre-1.0 and keeps the v1 event envelope compatible. Implemented
 authoring workflows are documented in [Authoring](docs/AUTHORING.md); architecture
 and roadmap documents also describe planned capabilities. Plot specifications and
 arbitrary custom components still use recorded placeholders unless a renderer is
-provided; whiteboards are a working stock component.
+provided; whiteboards and reference browser windows are working stock components.
 
 ## Compatibility
 

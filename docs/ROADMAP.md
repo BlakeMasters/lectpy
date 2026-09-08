@@ -5,7 +5,7 @@ security review / content migration). One protocol across local → Tauri → re
 
 | Milestone | Deliverable | Effort | Status | Principal risk |
 |---|---|---:|---|---|
-| **v0.1 Protocol & compat core** | Lecture IR, event schemas, artifact IDs, edtrace-compat author layer, scoped context, tracer, CAS, static replay + tests | 3–5 | **in progress (this branch)** | Locking in wrong state model |
+| **v0.1 Protocol & compat core** | Lecture IR, event schemas, artifact IDs, edtrace-compat author layer, scoped context, tracer, CAS, static replay + tests | 3–5 | **done** | Locking in wrong state model |
 | **v0.2 Browser shell** | TS shell, virtualized source/trace view, keyboard nav + URL routes, inspector & renderer registries | 4–6 | **done (this branch)** | UI scope creep |
 | **v0.3 Runtime broker** | Session supervisor, Jupyter kernels, one-shot processes, PTYs, cancellation, xterm integration | 6–8 | **done (this branch)** | Win PTY/process edge cases; leaks |
 | **v0.4 JS/TS + live components** | Vite/esbuild pipeline, iframe sandbox, Deno/Node adapters, capability bridge | 5–7 | planned | XSS / escape / capability confusion |
@@ -64,6 +64,23 @@ v0.7 isolation milestone — never on "containers are probably enough".
 - [x] Real-browser validation (Playwright + Edge) caught and fixed: CSP
       missing `ws:` in connect-src, pywinpty str-only write killing attach,
       stream-convergence count mismatch (now snapshot-marker based)
+
+## Creation extensions after v0.3
+
+The next creation workflows stay optional and event-first. Each module should be
+usable from plain Python, render in static and React viewers, degrade to a useful
+recorded representation, and load only when its component appears. The shared
+acceptance bar is: bounded payloads, no new default frontend dependency, keyboard
+and screen-reader coverage, a golden replay fixture, and a browser smoke test.
+
+| Extension | Design | Incremental acceptance target |
+|---|---|---|
+| **Scenes and stable output IDs** | Add explicit `scene_start`/`scene_end` metadata and stable author IDs without changing existing event ordering. Reader projects scenes; Presenter seeks within one; Inspector exposes source and scene identity. | Old bundles replay byte-for-byte; a multi-scene fixture can seek, clear, and reload without duplicating outputs. |
+| **Recorded parameter explorer** | Declare finite typed controls (number, choice, boolean, text) with defaults, bounds, labels, and an author callback identity. Record selections as data; never resume arbitrary Python from a browser replay. | Static control changes a deterministic precomputed result or selects a recorded branch; invalid values are rejected at both SDK and client boundaries. |
+| **Optional plot adapters** | Keep a small renderer-neutral plot event. Provide opt-in adapters that convert Matplotlib/Plotly/Vega inputs to portable SVG/JSON/artifact refs at author time; do not import plotting stacks on startup. | SVG/JSON export, accessible title/description, bounded artifact size, and identical fallback text in both viewers. |
+| **Live Python actions** | Add explicit broker capabilities for actions such as reset, rerun, or parameterized execution. Require a user gesture, session token, cancellation, and a recorded fallback; replay never silently executes code. | Permission-denied, timeout, cancel, and reconnect states are visible and testable without a live broker. |
+| **Style and renderer modules** | Extend the renderer registry with capability metadata, lazy imports, theme tokens, and an accessibility contract. A style can change projection/layout while consuming the same v1 log. | A third-party style can register one component, stay out of the startup graph, and pass the shared keyboard/ARIA fixture suite. |
+| **Persistence and collaboration** | Treat whiteboard/local controls as versioned local documents first; add snapshots and import/export before shared editing. If collaboration arrives later, sync operations rather than browser pixels. | Reload-safe local snapshots with schema migration tests; no claim of collaboration until conflict and permission semantics are specified. |
 
 ## v0.2+ entry criteria
 

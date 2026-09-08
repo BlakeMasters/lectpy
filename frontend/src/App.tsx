@@ -1,4 +1,4 @@
-/** lectpy browser shell v0.2.
+/** lectpy browser shell v0.3.
  *
  *  Loads a v1 lecture bundle (static `lecture.json` today; broker event
  *  subscription in v0.3) and renders the debugger-like lecture view:
