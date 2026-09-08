@@ -138,3 +138,10 @@ pre.term {
 .lecture-media{margin:1rem 0}
 .lecture-media img,.lecture-media video{display:block;max-width:100%;height:auto}
 .lecture-media figcaption{margin-top:.5rem}
+.lecture-browser-window{border:1px solid #8884;border-radius:8px;padding:1rem;margin:1rem 0;background:#8881}
+.lecture-browser-window h3{margin:.1rem 0 .5rem}
+.browser-window-url{overflow-wrap:anywhere;word-break:break-word}
+.browser-window-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.browser-window-actions a{padding:.4rem .8rem}
+.browser-window-status{min-height:1.4em;margin:.6rem 0 0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

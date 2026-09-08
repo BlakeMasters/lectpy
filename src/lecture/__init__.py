@@ -33,6 +33,8 @@ __all__ = [
     "system_text",
     "component",
     "whiteboard",
+    "browser_open",
+    "browser_close",
     "terminal",
     "inspect",
     "hide",
@@ -158,6 +160,88 @@ def whiteboard(
         raise ValueError("whiteboard background must be blank, grid, or dots")
     return component(
         "whiteboard", {"title": title, "width": width, "height": height, "background": background}
+    )
+
+
+def _browser_window_id(window_id: str) -> str:
+    import re
+
+    if not isinstance(window_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", window_id):
+        raise ValueError("browser window_id must contain 1-64 letters, numbers, '_' or '-'")
+    return window_id
+
+
+def _browser_url(url: str) -> str:
+    from urllib.parse import urlsplit
+
+    if not isinstance(url, str) or len(url) > 4096 or any(ord(c) < 0x20 for c in url):
+        raise ValueError("browser URL must be a printable string of at most 4096 characters")
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("browser URL must be an absolute http:// or https:// URL")
+    return url
+
+
+def _browser_dimension(name: str, value: int, low: int, high: int) -> int:
+    if type(value) is not int or not low <= value <= high:
+        raise ValueError(f"browser {name} must be an integer from {low} to {high}")
+    return value
+
+
+def _browser_position(name: str, value: int | None) -> int | None:
+    if value is None:
+        return None
+    if type(value) is not int or not -10_000 <= value <= 10_000:
+        raise ValueError(f"browser {name} must be None or an integer from -10000 to 10000")
+    return value
+
+
+def browser_open(
+    url: str,
+    *,
+    window_id: str = "reference",
+    title: str = "Reference",
+    width: int = 1200,
+    height: int = 800,
+    left: int | None = None,
+    top: int | None = None,
+    resizable: bool = True,
+    focus: bool = True,
+) -> Event:
+    """Declare a user-initiated reference window for the browser viewer.
+
+    The viewer renders an accessible Open button because browsers block
+    unsolicited popups. Once opened, the named window can be closed with
+    ``browser_close(window_id)`` or its card's Close button.
+    """
+    from urllib.parse import urlsplit
+
+    if not isinstance(title, str) or len(title) > 200:
+        raise ValueError("browser title must be a string of at most 200 characters")
+    if type(resizable) is not bool or type(focus) is not bool:
+        raise TypeError("browser resizable and focus must be bools")
+    clean_url = _browser_url(url)
+    host = urlsplit(clean_url).netloc
+    props = {
+        "action": "open",
+        "window_id": _browser_window_id(window_id),
+        "url": clean_url,
+        "title": title or clean_url,
+        "width": _browser_dimension("width", width, 320, 4096),
+        "height": _browser_dimension("height", height, 240, 2160),
+        "left": _browser_position("left", left),
+        "top": _browser_position("top", top),
+        "resizable": resizable,
+        "focus": focus,
+    }
+    return component("browser-window", props=props, permissions={"network": [host]})
+
+
+def browser_close(window_id: str = "reference") -> Event:
+    """Declare a close request for a previously opened reference window."""
+    return component(
+        "browser-window",
+        props={"action": "close", "window_id": _browser_window_id(window_id)},
     )
 
 

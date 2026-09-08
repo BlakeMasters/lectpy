@@ -32,6 +32,7 @@ button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid 
 pre.code{background:#8881;border-radius:8px;padding:.75rem;overflow:auto}
 .lecture-code{margin:1rem 0}.lecture-code figcaption{font-weight:600}
 .lecture-media{margin:1rem 0}.lecture-media img,.lecture-media video{display:block;max-width:100%;height:auto}.lecture-media figcaption{margin-top:.5rem}
+.lecture-browser-window{border:1px solid #8884;border-radius:8px;padding:1rem;margin:1rem 0;background:#8881}.lecture-browser-window h3{margin:.1rem 0 .5rem}.browser-window-url{overflow-wrap:anywhere;word-break:break-word}.browser-window-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.browser-window-actions a{padding:.4rem .8rem}.browser-window-status{min-height:1.4em;margin:.6rem 0 0}
 .lecture-table{overflow:auto;max-height:480px;margin:1rem 0;border:1px solid #8884;border-radius:6px}
 .lecture-table table{border-collapse:collapse;width:100%;text-align:left}
 .lecture-table caption{text-align:left;padding:.75rem;font-weight:600}
@@ -71,6 +72,7 @@ var stage=document.getElementById("stage");
 var pos=document.getElementById("pos");
 var meta=document.getElementById("meta");
 var boardStates=new Map(),boardDisposers=[];
+var browserController=typeof BrowserWindowController==="function"?new BrowserWindowController():null;
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function renderOutput(ev){
   var p=ev.payload||{};
@@ -86,6 +88,11 @@ function renderOutput(ev){
   }
   if(ev.kind==="component"){
     if(p.component_type==="whiteboard")return '<div data-whiteboard="'+ev.seq+'"></div>';
+    if(p.component_type==="browser-window"){
+      var props=p.props||{},action=props.action||"open",id=props.window_id||"reference",url=props.url||"",title=props.title||"Reference";
+      if(action==="close")return '<section class="lecture-browser-window" data-browser-action="close" data-browser-id="'+esc(id)+'"><h3>Reference window: close request</h3><p class="muted">Window <code>'+esc(id)+'</code> is released when this step is reached.</p><p class="browser-window-status" role="status" aria-live="polite">Close request recorded.</p></section>';
+      return '<section class="lecture-browser-window" data-browser-action="open" data-browser-id="'+esc(id)+'" data-browser-url="'+esc(url)+'" data-browser-title="'+esc(title)+'" data-browser-width="'+esc(props.width||1200)+'" data-browser-height="'+esc(props.height||800)+'" data-browser-left="'+esc(props.left==null?"":props.left)+'" data-browser-top="'+esc(props.top==null?"":props.top)+'" data-browser-resizable="'+(props.resizable===false?"false":"true")+'" data-browser-focus="'+(props.focus===false?"false":"true")+'"><h3>'+esc(title)+'</h3><p class="browser-window-url"><span>Reference: </span><code>'+esc(url||"Blocked URL")+'</code></p><p class="muted">'+esc(props.width||1200)+' × '+esc(props.height||800)+(props.left!=null||props.top!=null?' · position '+esc(props.left==null?"auto":props.left)+', '+esc(props.top==null?"auto":props.top):'')+' · lectpy_'+esc(id)+'</p><div class="browser-window-actions"><button type="button" data-browser-open="1"'+(url?'':' disabled')+'>Open reference window</button><button type="button" data-browser-close="1">Close reference window</button>'+(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Open reference link</a>':'')+'</div><p class="browser-window-status" role="status" aria-live="polite">Ready to open from this control.</p></section>';
+    }
     return '<div class="muted" role="note">Interactive component <code>'+esc(p.component_type||"")+'</code> — recorded fallback in static mode.</div>'
   }
   if(ev.kind==="error"){return '<p role="alert"><strong>Error:</strong> '+esc(p.message||"")+'</p>'}
@@ -128,6 +135,19 @@ function render(){
       button.addEventListener("click",function(){state.open=true;mount()});host.append(button);
     }
   });
+  if(browserController){stage.querySelectorAll('[data-browser-action]').forEach(function(card){
+    var id=card.getAttribute('data-browser-id')||'reference',action=card.getAttribute('data-browser-action');
+    var status=card.querySelector('.browser-window-status');
+    function setStatus(message){if(status)status.textContent=message}
+    if(action==='close'){
+      setStatus(browserController.close(id).message);
+      return;
+    }
+    var spec={window_id:id,url:card.getAttribute('data-browser-url')||'',title:card.getAttribute('data-browser-title')||'Reference',width:Number(card.getAttribute('data-browser-width')),height:Number(card.getAttribute('data-browser-height')),left:card.getAttribute('data-browser-left')===''?undefined:Number(card.getAttribute('data-browser-left')),top:card.getAttribute('data-browser-top')===''?undefined:Number(card.getAttribute('data-browser-top')),resizable:card.getAttribute('data-browser-resizable')!=='false',focus:card.getAttribute('data-browser-focus')!=='false'};
+    var open=card.querySelector('[data-browser-open]'),close=card.querySelector('[data-browser-close]');
+    if(open)open.addEventListener('click',function(){setStatus(browserController.open(spec).message)});
+    if(close)close.addEventListener('click',function(){setStatus(browserController.close(id).message)});
+  })}
   pos.textContent=steps.length?(idx+1)+" / "+steps.length:"Document";
   document.getElementById("prev").disabled=idx<=0;
   document.getElementById("next").disabled=idx>=steps.length-1;
@@ -174,15 +194,25 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
         and event.get("payload", {}).get("component_type") == "whiteboard"
         for event in bundle.get("events", [])
     )
+    has_browser_window = any(
+        event.get("kind") == "component"
+        and event.get("payload", {}).get("component_type") == "browser-window"
+        for event in bundle.get("events", [])
+    )
     viewer = VIEWER_JS
     script_type = ""
+    modules = []
     if has_whiteboard:
-        # Inline ESM has no external requests and works from file:// as well.
-        viewer = (
+        modules.append(
             (Path(__file__).parent / "static" / "whiteboard.js").read_text(encoding="utf-8")
-            + "\n"
-            + viewer
         )
+    if has_browser_window:
+        modules.append(
+            (Path(__file__).parent / "static" / "browser_window.js").read_text(encoding="utf-8")
+        )
+    if modules:
+        # Inline ESM has no external requests and works from file:// as well.
+        viewer = "\n".join(modules) + "\n" + viewer
         script_type = ' type="module"'
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -194,7 +224,7 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <style>{VIEWER_CSS}</style>
 </head>
 <body>
-<header class="top"><h1>{html.escape(title)}</h1><span class="muted">static replay · lectpy v0.1</span></header>
+<header class="top"><h1>{html.escape(title)}</h1><span class="muted">static replay · lectpy v0.3</span></header>
 <div class="viewbar"><label for="view-mode">View</label>
 <select id="view-mode"><option value="reader">Reader</option><option value="presenter">Presenter</option><option value="inspector">Inspector</option></select>
 <span id="view-status" class="muted" role="status"></span></div>

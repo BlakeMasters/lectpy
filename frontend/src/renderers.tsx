@@ -4,12 +4,14 @@
  *  exporter-sanitized `html` (see `sanitize.py`); live broker HTML gets a
  *  DOMPurify pass in v0.4 before reaching these components.
  */
+import { lazy, Suspense } from "react";
 import type { LectureEvent } from "./protocol";
 import { isSafeUrl } from "./select";
 import { useResource } from "./resources";
 import { Whiteboard } from "./Whiteboard";
 
 type P = { event: LectureEvent };
+const BrowserWindow = lazy(() => import("./BrowserWindow"));
 
 function payload(event: LectureEvent): Record<string, unknown> {
   return event.payload ?? {};
@@ -122,6 +124,13 @@ export function TerminalBlock({ event }: P) {
 export function ComponentBlock({ event }: P) {
   const p = payload(event);
   if (p["component_type"] === "whiteboard") return <Whiteboard event={event} />;
+  if (p["component_type"] === "browser-window") {
+    return (
+      <Suspense fallback={<p role="status">Loading reference-window controls…</p>}>
+        <BrowserWindow event={event} />
+      </Suspense>
+    );
+  }
   return (
     <>
       <div className="muted" role="note">
