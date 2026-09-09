@@ -1,4 +1,4 @@
-from lecture import clear, inspect_value, text
+from lecture import clear, inspect_value, section, text
 from lecture.context import ExecutionContext, execution_scope, get_current
 
 
@@ -43,6 +43,25 @@ def test_small_value_has_no_handle():
         ev = inspect_value("x", 42)
     assert "handle" not in ev.payload
     assert ev.payload["summary"] == "42"
+
+
+def test_section_scopes_projection_metadata_without_changing_event_kind():
+    with execution_scope() as ctx:
+        text("before")
+        with section("Evidence", tone="evidence", density="compact", width="wide"):
+            text("inside")
+        text("after")
+
+    events = ctx.log.subscribe()
+    assert "presentation" not in events[0].payload
+    assert events[1].payload["presentation"] == {
+        "name": "Evidence",
+        "tone": "evidence",
+        "density": "compact",
+        "width": "wide",
+        "align": "start",
+    }
+    assert "presentation" not in events[2].payload
 
 
 def test_clear_emits_event():

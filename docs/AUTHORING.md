@@ -157,6 +157,11 @@ The View selector in either viewer changes the presentation of the same recordin
   a presentation style, not a slide-layout system.
 - Inspector shows the selected step, runtime state, and (in the React shell) source.
 
+Inspector's Workspace panel keeps the current frame's locals in a compact
+Name/Value/Type table. New or changed values are marked at the selected step;
+the call-stack cue and inspected-value summaries stay beside the output so a
+rehearsal can follow data flow without turning on the source pane.
+
 Switching to Reader does not move the stored trace cursor. Switching back to
 Presenter or Inspector restores that position. The selector uses native keyboard
 controls. In Reader, arrow/Home/End keys keep their normal page-scroll behavior.
@@ -178,6 +183,25 @@ while newly introduced output receives the current-line accent. The accent color
 and display font preset are session-local viewer choices; they do not alter a
 recording.
 
+### Section-scoped visual adjustments
+
+Use `section()` to give related outputs a bounded presentation hint while
+keeping one portable event log:
+
+```python
+from lecture import section, text, table
+
+with section("Evidence", tone="evidence", density="compact", width="wide"):
+    text("## Results")
+    table(rows, title="Measured values")
+```
+
+Available tones are `neutral`, `hero`, `evidence`, `code`, and `recap`.
+Density can be `compact`, `comfortable`, or `roomy`; width can be `reading`,
+`wide`, or `full`; alignment can be `start` or `center`. These are projection
+metadata only. The static replay and React shell use the same bounded class
+vocabulary, and older readers can safely ignore the extra payload field.
+
 ## Step-driven reference windows
 
 `browser_open(url, ...)` and `browser_close(window_id)` are recorded as ordinary
@@ -185,14 +209,18 @@ component events. In Presenter or Inspector, moving forward through a recorded
 open/close event attempts to apply it from the user's step-navigation action, so
 an author can make a reference page appear at the point where it is discussed and
 close it later. The named `lectpy_<window_id>` handle is reused and focused on
-repeat opens; moving backward rebuilds the recorded window state by closing owned
-handles and replaying the visible events. Reader keeps the same accessible
+repeat opens; moving backward reconciles owned handles without replaying
+historical open commands. Reader keeps the same accessible
 fallback controls without stepping.
 
 Popup blockers may prevent the automatic attempt. Each reference output retains a
 Focus/Open action, a Close action where applicable, and an ordinary fallback link,
 so the lecture remains usable. Geometry is best-effort browser placement, and the
-remote page is never copied into the bundle.
+remote page is never copied into the bundle. Moving backward is a reconciliation
+operation: it closes windows that are not open at the target step and never
+replays an old open command merely because that command is in the visible
+history. This prevents an arrow-key rewind from reopening the last reference
+link as a stale popup.
 
 ## Portable media
 

@@ -90,6 +90,29 @@ export function visibleBrowserWindowEvents(
   });
 }
 
+export type BrowserWindowAction = "open" | "close";
+
+/** Last recorded command for each reference window at a selected step. */
+export function browserWindowStateAt(
+  events: LectureEvent[],
+  steps: LectureEvent[],
+  idx: number,
+): Map<string, BrowserWindowAction> {
+  const state = new Map<string, BrowserWindowAction>();
+  visibleBrowserWindowEvents(events, steps, idx).forEach((event) => {
+    const value = event.payload?.["props"];
+    const props = value && typeof value === "object"
+      ? value as Record<string, unknown>
+      : {};
+    const candidate = props["window_id"];
+    const id = typeof candidate === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(candidate)
+      ? candidate
+      : "reference";
+    state.set(id, props["action"] === "close" ? "close" : "open");
+  });
+  return state;
+}
+
 export function visibleInspects(
   events: LectureEvent[],
   steps: LectureEvent[],

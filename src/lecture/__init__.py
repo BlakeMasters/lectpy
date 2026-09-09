@@ -11,6 +11,7 @@ import functools
 import inspect as pyinspect
 import subprocess
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,7 @@ __all__ = [
     "clear",
     "system_text",
     "component",
+    "section",
     "whiteboard",
     "browser_open",
     "browser_close",
@@ -267,6 +269,40 @@ def component(
             "fallback": "recorded",
         },
     )
+
+
+@contextmanager
+def section(
+    name: str,
+    *,
+    tone: str = "neutral",
+    density: str = "comfortable",
+    width: str = "reading",
+    align: str = "start",
+):
+    """Scope presentation hints for a coherent lecture section.
+
+    Section hints are projection metadata only: they do not change execution,
+    output ordering, or older readers. Use them around related calls to give a
+    presenter a hero opening, compact evidence block, code/derivation passage,
+    or spacious recap while keeping one portable event log.
+    """
+    if not isinstance(name, str) or not name.strip() or len(name) > 80:
+        raise ValueError("section name must be a non-empty string of at most 80 characters")
+    choices = {
+        "tone": (tone, {"neutral", "hero", "evidence", "code", "recap"}),
+        "density": (density, {"compact", "comfortable", "roomy"}),
+        "width": (width, {"reading", "wide", "full"}),
+        "align": (align, {"start", "center"}),
+    }
+    for label, (value, allowed) in choices.items():
+        if value not in allowed:
+            raise ValueError(f"section {label} must be one of {sorted(allowed)}")
+    ctx = require_current()
+    with ctx.presentation_scope(
+        {"name": name.strip(), "tone": tone, "density": density, "width": width, "align": align}
+    ):
+        yield
 
 
 def terminal(argv: list[str], mode: str = "recorded", policy: str = "lecture-process") -> Event:

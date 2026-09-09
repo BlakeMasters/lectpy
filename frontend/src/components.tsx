@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { LectureEvent, LectureSource, TraceReference } from "./protocol";
+import { sectionPresentation } from "./presentation";
 import { RendererRegistry } from "./registry";
 import { stepIndexForLine, virtualWindow } from "./select";
 
@@ -51,16 +52,133 @@ export function StepBar({
   );
 }
 
-export function EnvInspector({ locals }: { locals: Record<string, string> }) {
+function valueType(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "True" || trimmed === "False") return "bool";
+  if (trimmed === "None") return "NoneType";
+  if (/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?j?$/i.test(trimmed)) return "number";
+  if (/^(?:[rubfRUBF]{0,2})(['\"])/.test(trimmed)) return "str";
+  if (trimmed.startsWith("[")) return "list";
+  if (trimmed.startsWith("{")) return "dict";
+  if (trimmed.startsWith("(")) return "tuple";
+  if (trimmed.startsWith("<")) return "object";
+  return "value";
+}
+
+function stringPayload(payload: Record<string, unknown>, key: string): string {
+  const value = payload[key];
+  return typeof value === "string" ? value : value == null ? "" : String(value);
+}
+
+export function VariableInspector({
+  locals,
+  previousLocals,
+  currentFile,
+  currentFunc,
+  currentLine,
+  reference,
+  inspects,
+}: {
+  locals: Record<string, string>;
+  previousLocals: Record<string, string>;
+  currentFile: string | null;
+  currentFunc: string | null;
+  currentLine: number | null;
+  reference: TraceReference | null;
+  inspects: LectureEvent[];
+}) {
   const keys = Object.keys(locals);
-  if (keys.length === 0) return null;
   return (
-    <details open>
-      <summary>
-        Environment ({keys.length})
-      </summary>
-      <pre className="code">{keys.map((k) => `${k} = ${locals[k]}`).join("\n")}</pre>
-    </details>
+    <aside id="variable-panel" aria-label="Workspace variables">
+      <div className="workspace-heading">
+        <div>
+          <div className="workspace-kicker">Workspace</div>
+          <h2>Variables</h2>
+        </div>
+        <span className="workspace-count" aria-label={`${keys.length} variables`}>
+          {keys.length}
+        </span>
+      </div>
+      <p className="workspace-location">
+        <code>{currentFunc || "main"}</code>
+        <span>·</span>
+        <span>line {currentLine ?? "?"}</span>
+        {currentFile ? <span className="muted">· {currentFile.split(/[\\/]/).pop()}</span> : null}
+      </p>
+      <ol className="call-stack" aria-label="Trace call stack">
+        <li className="call-stack-current">
+          <code>{currentFunc || "main"}</code>
+          <span>current frame</span>
+        </li>
+        {reference ? (
+          <li>
+            <code>ref → {reference.func || "caller"}</code>
+            <span>{reference.file.split(/[\\/]/).pop()}:{reference.line}</span>
+          </li>
+        ) : null}
+      </ol>
+      <div className="variable-table-wrap">
+        <table className="variable-table">
+          <caption className="sr-only">Current variables with values and inferred types</caption>
+          <thead>
+            <tr><th scope="col">Name</th><th scope="col">Value</th><th scope="col">Type</th></tr>
+          </thead>
+          <tbody>
+            {keys.map((name) => {
+              const changed = !Object.prototype.hasOwnProperty.call(previousLocals, name)
+                || previousLocals[name] !== locals[name];
+              return (
+                <tr key={name} className={changed ? "variable-row variable-row-changed" : "variable-row"}>
+                  <th scope="row" className="variable-name"><code>{name}</code></th>
+                  <td className="variable-value" title={locals[name]}><code>{locals[name]}</code></td>
+                  <td className="variable-type">
+                    <code>{valueType(locals[name])}</code>
+                    {changed ? <span className="variable-change" title="New or changed at this step">new</span> : null}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {keys.length === 0 ? <p className="muted">No locals in this frame.</p> : null}
+      {inspects.length > 0 ? (
+        <details className="workspace-inspects" open>
+          <summary>Inspected values ({inspects.length})</summary>
+          <ul>
+            {inspects.map((event) => {
+              const p = event.payload ?? {};
+              const name = stringPayload(p, "name") || "?";
+              const summary = stringPayload(p, "summary");
+              const type = stringPayload(p, "type");
+              const shape = Array.isArray(p["shape"]) ? ` shape=${p["shape"].join("×")}` : "";
+              return (
+                <li key={event.seq}>
+                  <code>{name}</code>
+                  <span className="muted"> · {type}{shape}</span>
+                  <div className="inspect-summary" title={summary}>{summary}</div>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      ) : null}
+    </aside>
+  );
+}
+
+/** Compatibility wrapper for callers that only have a local snapshot. */
+export function EnvInspector({ locals }: { locals: Record<string, string> }) {
+  return (
+    <VariableInspector
+      locals={locals}
+      previousLocals={{}}
+      currentFile={null}
+      currentFunc={null}
+      currentLine={null}
+      reference={null}
+      inspects={[]}
+    />
   );
 }
 
@@ -201,18 +319,23 @@ export function OutputView({
 }) {
   return (
     <>
-      {outputs.map((e) => {
+      {outputs.map((e, index) => {
         const contrib = registry.resolve(e.kind);
         if (!contrib) return null;
         const C = contrib.component;
         const current = activeOutputSeqs.has(e.seq);
+        const section = sectionPresentation(e);
+        const previousSection = sectionPresentation(outputs[index - 1]).name;
+        const showSectionMarker = Boolean(section.name && section.name !== previousSection);
         return (
           <article
             key={`${e.seq}`}
-            className={current ? "lecture-output lecture-output-current" : "lecture-output"}
+            className={`lecture-output ${section.className}${current ? " lecture-output-current" : ""}`}
             data-output-seq={e.seq}
+            data-section={section.name || undefined}
             aria-current={current ? "step" : undefined}
           >
+            {showSectionMarker ? <div className="section-marker" aria-hidden="true">{section.name}</div> : null}
             <C event={e} />
           </article>
         );

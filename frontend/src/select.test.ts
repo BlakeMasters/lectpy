@@ -3,6 +3,7 @@ import type { LectureEvent } from "./protocol";
 import {
   clampStep,
   clearSeqBefore,
+  browserWindowStateAt,
   currentOutputSeqs,
   endSeqFor,
   isSafeUrl,
@@ -123,6 +124,26 @@ describe("visible outputs", () => {
     const selectedSteps = stepEvents(events);
     expect(visibleBrowserWindowEvents(events, selectedSteps, 1).map((e) => e.seq)).toEqual([2]);
     expect(visibleBrowserWindowEvents(events, selectedSteps, 2).map((e) => e.seq)).toEqual([2, 5]);
+  });
+
+  it("reconciles backward navigation without replaying historical opens", () => {
+    const events = [
+      ev(1, "step", { line: 1 }),
+      ev(2, "component", { component_type: "browser-window", props: { action: "open", window_id: "paper" } }),
+      ev(3, "step", { line: 2 }),
+      ev(4, "component", { component_type: "browser-window", props: { action: "open", window_id: "pdf" } }),
+      ev(5, "step", { line: 3 }),
+      ev(6, "component", { component_type: "browser-window", props: { action: "close", window_id: "paper" } }),
+      ev(7, "step", { line: 4 }),
+    ];
+    const selectedSteps = stepEvents(events);
+    expect([...browserWindowStateAt(events, selectedSteps, 1)]).toEqual([["paper", "open"]]);
+    expect([...browserWindowStateAt(events, selectedSteps, 2)]).toEqual([
+      ["paper", "open"], ["pdf", "open"],
+    ]);
+    expect([...browserWindowStateAt(events, selectedSteps, 3)]).toEqual([
+      ["paper", "close"], ["pdf", "open"],
+    ]);
   });
 });
 

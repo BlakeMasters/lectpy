@@ -2,18 +2,17 @@
  *
  *  Loads a v1 lecture bundle (static `lecture.json` today; broker event
  *  subscription in v0.3) and renders the debugger-like lecture view:
- *  step bar, environment inspector, renderer-registry outputs, virtualized
+ *  step bar, workspace variable inspector, renderer-registry outputs, virtualized
  *  source pane. All stepping is keyboard reachable and URL deep-linked.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import {
-  EnvInspector,
-  InspectsList,
   OutputView,
   SourcePane,
   StepBar,
   TraceLocation,
+  VariableInspector,
   stepIndexForLine,
 } from "./components";
 import {
@@ -44,6 +43,7 @@ import {
 import { CommandRegistry, ExecutionRegistry, RendererRegistry } from "./registry";
 import {
   clampStep,
+  browserWindowStateAt,
   currentOutputSeqs,
   parseStepParam,
   stepEvents,
@@ -151,10 +151,15 @@ export default function App() {
       if (!bundle || from === to || view === "reader") return;
       const target = visibleBrowserWindowEvents(bundle.events, steps, to);
       if (to < from) {
-        // Backward navigation is a state rewind: release handles that belong
-        // to later steps, then replay target commands in recorded order.
-        referenceWindowController.closeAll();
-        target.forEach((event) => applyBrowserWindowEvent(event));
+        // Backward navigation is a state reconciliation, not a replay. A
+        // historical open must never launch a stale popup just because the
+        // cursor landed on a step where its output is still visible.
+        const targetState = browserWindowStateAt(bundle.events, steps, to);
+        const priorState = browserWindowStateAt(bundle.events, steps, from);
+        const ids = new Set([...priorState.keys(), ...targetState.keys()]);
+        ids.forEach((id) => {
+          if (targetState.get(id) !== "open") referenceWindowController.close(id);
+        });
         return;
       }
       const prior = new Set(
@@ -257,6 +262,11 @@ export default function App() {
   const s = steps[idx];
   const payload = (s?.payload ?? {}) as Record<string, unknown>;
   const locals = (payload["locals"] ?? {}) as Record<string, string>;
+  const previousPayload = (idx > 0 ? steps[idx - 1]?.payload : undefined) as Record<string, unknown> | undefined;
+  const previousLocals = previousPayload?.["func"] === payload["func"]
+    ? (previousPayload?.["locals"] ?? {}) as Record<string, string>
+    : {};
+  const currentFile = typeof payload["file"] === "string" ? payload["file"] : null;
   const currentLine = typeof payload["line"] === "number" ? (payload["line"] as number) : null;
   const currentFunc = typeof payload["func"] === "string" ? (payload["func"] as string) : null;
   const reference = traceReference(s);
@@ -360,7 +370,7 @@ export default function App() {
           onSeekReference={(ref) => go(stepIndexForReference(steps, ref))}
         />
       ) : null}
-      <div className={sourceVisible ? "layout trace-layout" : "layout document-layout"}>
+      <div className={`${sourceVisible ? "layout trace-layout" : "layout document-layout"}${view === "inspector" ? " inspector-layout" : ""}`}>
         {sourceVisible ? (
           <SourcePane
             source={bundle.source!}
@@ -370,7 +380,6 @@ export default function App() {
           />
         ) : null}
         <section id="stage" tabIndex={0} aria-label="Lecture stage">
-          {view === "inspector" && <EnvInspector locals={locals} />}
           <ResourceProvider environment={resourceEnvironment}>
             <WhiteboardSession key={bundle.events[0]?.execution_id ?? "empty"}>
               <OutputView
@@ -380,8 +389,18 @@ export default function App() {
               />
             </WhiteboardSession>
           </ResourceProvider>
-          {view === "inspector" && <InspectsList inspects={inspects} />}
         </section>
+        {view === "inspector" ? (
+          <VariableInspector
+            locals={locals}
+            previousLocals={previousLocals}
+            currentFile={currentFile}
+            currentFunc={currentFunc}
+            currentLine={currentLine}
+            reference={reference}
+            inspects={inspects}
+          />
+        ) : null}
       </div>
       {view === "inspector" && <p className="muted">
         Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via{" "}

@@ -31,7 +31,9 @@ button{padding:.35rem .65rem;border:1px solid color-mix(in srgb,CanvasText 42%,C
 button:hover:not(:disabled){background:color-mix(in srgb,CanvasText 12%,Canvas)}button:disabled{opacity:.45;cursor:default}
 button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid #0969da;outline-offset:2px}
 #trace-layout{display:grid;grid-template-columns:minmax(250px,30%) minmax(0,1fr);gap:0;align-items:start}
+#trace-layout.inspector-open{grid-template-columns:minmax(0,1fr) minmax(255px,300px)}#trace-layout.trace-open.inspector-open{grid-template-columns:minmax(250px,26%) minmax(0,1fr) minmax(255px,300px)}
 #trace-layout:not(.trace-open){display:block}
+#trace-layout:not(.trace-open).inspector-open{display:grid}
 #stage{padding:1.25rem 0;min-height:200px}
 #source-panel{min-width:0;padding-right:1rem}#source-panel[hidden]{display:none}
 .source-title{font-size:1rem;margin:.1rem 0 .5rem}.source-scroll{border:1px solid color-mix(in srgb,CanvasText 24%,Canvas);border-radius:2px;overflow:auto;height:60vh;font-size:.88em;background:Canvas}
@@ -39,7 +41,8 @@ button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid 
 .source-line.current{background:color-mix(in srgb,var(--trace-highlight) 5%,Canvas);box-shadow:inset 2px 0 0 var(--trace-highlight)}.source-line.current .source-lineno{font-weight:700;color:var(--trace-highlight)}
 .source-lineno{min-width:3em;text-align:right;opacity:.55;user-select:none}
 .trace-location{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.75rem 0 0;font-family:var(--lectpy-code-font);font-size:.88em}.trace-location-current{opacity:.7}.trace-reference{border:0;border-bottom:2px solid var(--trace-highlight);border-radius:0;padding:.12rem .25rem;color:CanvasText;background:color-mix(in srgb,var(--trace-highlight) 9%,Canvas);font-family:inherit;font-size:.95em}.trace-reference:hover{background:color-mix(in srgb,var(--trace-highlight) 18%,Canvas)}
-.lecture-output{margin:0;padding:.85rem 0;border-top:1px solid color-mix(in srgb,CanvasText 12%,Canvas);scroll-margin-block:2rem}.lecture-output:first-child{border-top:0}.lecture-output-current{margin-inline:-1rem;padding:1.1rem 1rem 1.1rem .8rem;border-top-color:color-mix(in srgb,var(--trace-highlight) 55%,Canvas);border-inline-start:.35rem solid var(--trace-highlight);background:linear-gradient(90deg,color-mix(in srgb,var(--trace-highlight) 18%,Canvas),transparent 78%)}.lecture-output-current+.lecture-output{border-top-color:color-mix(in srgb,var(--trace-highlight) 28%,Canvas)}.view-presenter .lecture-output:not(.lecture-output-current){opacity:.42}.view-reader .lecture-output{opacity:1;border-top:0}.view-reader .lecture-output-current{margin-inline:0;padding:.85rem 0;border-inline-start:0;background:none}
+.lecture-output{--section-accent:color-mix(in srgb,CanvasText 58%,Canvas);margin:0;padding:.85rem 0;border-top:1px solid color-mix(in srgb,CanvasText 12%,Canvas);scroll-margin-block:2rem}.lecture-output:first-child{border-top:0}.section-tone-hero{--section-accent:#2563eb}.section-tone-evidence{--section-accent:#0f766e}.section-tone-code{--section-accent:#7c3aed}.section-tone-recap{--section-accent:#b45309}.section-marker{margin:0 0 .7rem;padding:.18rem 0;border-bottom:2px solid color-mix(in srgb,var(--section-accent) 52%,Canvas);color:var(--section-accent);font-family:var(--lectpy-code-font);font-size:.68em;font-weight:700;letter-spacing:.12em;text-transform:uppercase}.section-density-compact{padding-block:.35rem}.section-density-roomy{padding-block:1.55rem}.section-width-reading{max-inline-size:72ch}.section-width-wide{max-inline-size:96ch}.section-width-full{max-inline-size:none}.section-align-center{text-align:center}.section-align-center .lecture-media img,.section-align-center .lecture-media video{margin-inline:auto}.section-tone-hero .section-marker{font-size:.76em}.section-tone-evidence .lecture-table{border-inline-start:.28rem solid var(--section-accent);border-radius:0}.section-tone-code .lecture-code{border-inline-start:.28rem solid var(--section-accent);padding-inline-start:.8rem}.lecture-output-current{margin-inline:0;padding:1.1rem 1rem 1.1rem .8rem;border-top-color:color-mix(in srgb,var(--trace-highlight) 55%,Canvas);border-inline-start:.25rem solid var(--trace-highlight);background:linear-gradient(90deg,color-mix(in srgb,var(--trace-highlight) 7%,Canvas),transparent 72%)}.lecture-output-current+.lecture-output{border-top-color:color-mix(in srgb,var(--trace-highlight) 28%,Canvas)}.view-presenter .lecture-output:not(.lecture-output-current){opacity:.42}.view-reader .lecture-output{opacity:1;border-top:0}.view-reader .lecture-output-current{margin-inline:0;padding:.85rem 0;border-inline-start:0;background:none}
+#variable-panel{min-width:0;align-self:stretch;position:sticky;top:.75rem;max-height:calc(100vh - 1.5rem);overflow:auto;padding:1.1rem 0 1.25rem 1rem;border-inline-start:1px solid color-mix(in srgb,CanvasText 24%,Canvas)}.workspace-heading{display:flex;justify-content:space-between;align-items:start;gap:.75rem;border-bottom:1px solid color-mix(in srgb,CanvasText 22%,Canvas);padding-bottom:.45rem}.workspace-heading h2{margin:0;font-size:1.12rem}.workspace-kicker{color:var(--trace-highlight);font-family:var(--lectpy-code-font);font-size:.68em;font-weight:700;letter-spacing:.12em;text-transform:uppercase}.workspace-count{min-width:1.7rem;padding:.1rem .3rem;border:1px solid color-mix(in srgb,CanvasText 30%,Canvas);font-family:var(--lectpy-code-font);font-size:.78em;text-align:center}.workspace-location{display:flex;flex-wrap:wrap;gap:.35rem;margin:.7rem 0;font-family:var(--lectpy-code-font);font-size:.78em}.call-stack{margin:0 0 1rem;padding:.35rem 0 .35rem 1.35rem;border-block:1px solid color-mix(in srgb,CanvasText 16%,Canvas);font-size:.78em}.call-stack li{padding:.3rem 0}.call-stack li::marker{color:var(--trace-highlight);font-family:var(--lectpy-code-font)}.call-stack li span{display:block;opacity:.65}.call-stack-current code{color:var(--trace-highlight)}.variable-table-wrap{overflow-x:auto}.variable-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:.78em}.variable-table th,.variable-table td{padding:.35rem .28rem;border-top:1px solid color-mix(in srgb,CanvasText 14%,Canvas);vertical-align:top;text-align:left}.variable-table thead th{color:color-mix(in srgb,CanvasText 70%,Canvas);font-size:.82em;font-weight:600}.variable-table thead th:nth-child(1){width:25%}.variable-table thead th:nth-child(2){width:52%}.variable-table thead th:nth-child(3){width:23%}.variable-name{overflow-wrap:anywhere}.variable-value{overflow:hidden}.variable-value code{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.variable-type{color:color-mix(in srgb,CanvasText 68%,Canvas);overflow-wrap:anywhere}.variable-row-changed{background:color-mix(in srgb,#0f766e 13%,Canvas)}.variable-row-changed .variable-name{color:#0f766e}.variable-change{display:block;color:#0f766e;font-size:.8em;font-weight:700}.workspace-inspects{margin-top:1rem;border-top:1px solid color-mix(in srgb,CanvasText 20%,Canvas);padding-top:.6rem;font-size:.78em}.workspace-inspects summary{cursor:pointer;font-weight:600}.workspace-inspects ul{margin:.55rem 0 0;padding-left:1.1rem}.workspace-inspects li{margin:.55rem 0}.inspect-summary{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 pre.code{background:#8881;border-radius:2px;padding:.75rem;overflow:auto}
 .lecture-code{margin:1rem 0}.lecture-code figcaption{font-weight:600}
 .lecture-media{margin:1rem 0}.lecture-media img,.lecture-media video{display:block;max-width:100%;height:auto}.lecture-media figcaption{margin-top:.5rem}
@@ -49,7 +52,7 @@ pre.code{background:#8881;border-radius:2px;padding:.75rem;overflow:auto}
 pre.term{background:#111;color:#eee;border-radius:2px;padding:.75rem;overflow:auto;max-height:320px}
 .muted{opacity:.7;font-size:.9em}.viewbar{display:flex;flex-wrap:wrap;gap:.85rem 1.25rem;align-items:center;margin:0;padding:.7rem 0;border-bottom:1px solid color-mix(in srgb,CanvasText 18%,Canvas)}.viewbar label{font-size:.86em;letter-spacing:.02em}.viewbar select{font:inherit;color:CanvasText;background:Canvas;border:1px solid color-mix(in srgb,CanvasText 42%,Canvas);border-radius:2px;padding:.25rem .4rem}.viewbar select:focus-visible{outline:3px solid #0969da;outline-offset:2px}
 body[data-view=reader] #stepbar{display:none}body[data-view=reader] #stage{border:0;padding:0}body[data-view=presenter] #stage{font-size:1.35rem;min-height:60vh;padding:2rem 0 4rem}body:not([data-view=inspector]) #help{display:none}
-@media(max-width:900px){#trace-layout{grid-template-columns:1fr}#source-panel{padding-right:0}}
+@media(max-width:900px){#trace-layout{grid-template-columns:1fr}#source-panel{padding-right:0}#variable-panel{position:static;max-height:none;border-inline-start:0;border-top:1px solid color-mix(in srgb,CanvasText 24%,Canvas);padding:1rem 0}}
 @media(max-width:600px){body{padding:0 1rem 2rem}body[data-view=presenter] #stage{font-size:1.1rem;padding:1rem 0 2rem}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 """
@@ -72,6 +75,7 @@ var view=resolveView(params.get("view"));
 var idx=Math.min(Math.max(parseInt(params.get("step")||"0",10)||0,0),Math.max(steps.length-1,0));
 var stage=document.getElementById("stage");
 var layout=document.getElementById("trace-layout");
+var variablePanel=document.getElementById("variable-panel");
 var sourcePanel=document.getElementById("source-panel");
 var traceLocation=document.getElementById("trace-location");
 var sourceToggle=document.getElementById("source-toggle");
@@ -89,6 +93,35 @@ function traceReference(step){var ref=step&&step.payload&&step.payload.ref;if(!r
 function stepIndexForLine(line){var i,p;for(i=0;i<steps.length;i++){p=steps[i].payload||{};if(Number(p.line)>=line)return i}for(i=steps.length-1;i>=0;i--){p=steps[i].payload||{};if(Number(p.line)<=line)return i}return 0}
 function stepIndexForReference(ref){var i,p,file;for(i=0;i<steps.length;i++){p=steps[i].payload||{};file=String(p.file||"");if(Number(p.line)===Number(ref.line)&&(!ref.func||p.func===ref.func)&&(!file||file===ref.file||sourceFileName(file)===sourceFileName(ref.file)))return i}return stepIndexForLine(Number(ref.line))}
 function highlightValue(){return {amber:"#d97706",blue:"#2563eb",mint:"#0f766e",violet:"#7c3aed"}[highlightMode.value]||"#d97706"}
+function presentationFor(ev){
+  var raw=ev&&ev.payload&&ev.payload.presentation||{},tone=["neutral","hero","evidence","code","recap"].indexOf(raw.tone)>=0?raw.tone:"neutral",density=["compact","comfortable","roomy"].indexOf(raw.density)>=0?raw.density:"comfortable",width=["reading","wide","full"].indexOf(raw.width)>=0?raw.width:"reading",align=["start","center"].indexOf(raw.align)>=0?raw.align:"start",name=typeof raw.name==="string"?raw.name.slice(0,80):"";
+  return {name:name,tone:tone,density:density,width:width,align:align,className:"section-tone-"+tone+" section-density-"+density+" section-width-"+width+" section-align-"+align};
+}
+function valueType(value){
+  var trimmed=String(value||"").trim();
+  if(trimmed==="True"||trimmed==="False")return "bool";
+  if(trimmed==="None")return "NoneType";
+  if(/^[+-]?(?:\\d+\\.?\\d*|\\.\\d+)(?:e[+-]?\\d+)?j?$/i.test(trimmed))return "number";
+  if(/^(?:[rubfRUBF]{0,2})(['\"])/.test(trimmed))return "str";
+  if(trimmed.charAt(0)==="[")return "list";
+  if(trimmed.charAt(0)==="{")return "dict";
+  if(trimmed.charAt(0)==="(")return "tuple";
+  if(trimmed.charAt(0)==="<")return "object";
+  return "value";
+}
+function renderWorkspace(step,previous,inspects){
+  if(view!=="inspector"||!variablePanel){layout.classList.remove("inspector-open");if(variablePanel)variablePanel.hidden=true;return}
+  layout.classList.add("inspector-open");variablePanel.hidden=false;
+  var p=(step&&step.payload)||{},locals=p.locals||{},priorPayload=(previous&&previous.payload)||{},prior=priorPayload.func===p.func?priorPayload.locals||{}:{},keys=Object.keys(locals),ref=traceReference(step),h='<div class="workspace-heading"><div><div class="workspace-kicker">Workspace</div><h2>Variables</h2></div><span class="workspace-count" aria-label="'+keys.length+' variables">'+keys.length+'</span></div>';
+  h+='<p class="workspace-location"><code>'+esc(p.func||"main")+'</code><span>·</span><span>line '+esc(p.line||"?")+'</span>'+(p.file?'<span class="muted">· '+esc(sourceFileName(p.file))+'</span>':'')+'</p>';
+  h+='<ol class="call-stack" aria-label="Trace call stack"><li class="call-stack-current"><code>'+esc(p.func||"main")+'</code><span>current frame</span></li>';
+  if(ref)h+='<li><code>ref → '+esc(ref.func||"caller")+'</code><span>'+esc(sourceFileName(ref.file))+':'+esc(ref.line)+'</span></li>';
+  h+='</ol><div class="variable-table-wrap"><table class="variable-table"><caption class="sr-only">Current variables with values and inferred types</caption><thead><tr><th scope="col">Name</th><th scope="col">Value</th><th scope="col">Type</th></tr></thead><tbody>';
+  keys.forEach(function(name){var changed=!Object.prototype.hasOwnProperty.call(prior,name)||prior[name]!==locals[name];h+='<tr class="variable-row'+(changed?' variable-row-changed':'')+'"><th scope="row" class="variable-name"><code>'+esc(name)+'</code></th><td class="variable-value" title="'+esc(locals[name])+'"><code>'+esc(locals[name])+'</code></td><td class="variable-type"><code>'+valueType(locals[name])+'</code>'+(changed?'<span class="variable-change" title="New or changed at this step">new</span>':'')+'</td></tr>'});
+  h+='</tbody></table></div>'+(keys.length?'':'<p class="muted">No locals in this frame.</p>');
+  if(inspects.length){h+='<details class="workspace-inspects" open><summary>Inspected values ('+inspects.length+')</summary><ul>';inspects.forEach(function(ev){var p=ev.payload||{},name=String(p.name||"?"),summary=String(p.summary||""),type=String(p.type||""),shape=Array.isArray(p.shape)?" shape="+p.shape.join("×"):"";h+='<li><code>'+esc(name)+'</code><span class="muted"> · '+esc(type+shape)+'</span><div class="inspect-summary" title="'+esc(summary)+'">'+esc(summary)+'</div></li>'});h+='</ul></details>'}
+  variablePanel.innerHTML=h;
+}
 function applyDisplay(){
   var presets={
     system:{body:"system-ui,-apple-system,Segoe UI,Roboto,sans-serif",code:"ui-monospace,SFMono-Regular,Consolas,monospace",scale:"1",line:"1.55"},
@@ -174,14 +207,10 @@ function render(){
   var priorSeqs={};
   if(view!=="reader"&&idx>0)outputEventsAt(idx-1).forEach(function(e){priorSeqs[e.seq]=true});
   var p=(s&&s.payload)||{};
-  var loc=(p.func||"")+" @ line "+(p.line||"?");
-  if(s&&view==="inspector"){h+='<p class="muted">'+esc(loc)+'</p>'}
-  var locals=p.locals||{};
-  var keys=Object.keys(locals);
-  if(keys.length&&view==="inspector"){h+='<details open><summary>Environment ('+keys.length+')</summary><pre class="code">'+esc(keys.map(function(k){return k+" = "+locals[k]}).join("\\n"))+'</pre></details>'}
-  upto.forEach(function(ev){var current=!priorSeqs[ev.seq];h+='<article class="lecture-output'+(current?' lecture-output-current':'')+'" data-output-seq="'+ev.seq+'"'+(current?' aria-current="step"':'')+'>'+renderOutput(ev)+'</article>'});
   var insp=events.filter(function(e){return e.kind==="inspect"&&e.seq<=endSeq&&e.seq>clearSeq}).slice(-8);
-  if(insp.length&&view==="inspector"){h+='<details><summary>Inspected values</summary><pre class="code">'+esc(insp.map(function(e){return (e.payload.name||"?")+" = "+(e.payload.summary||"")}).join("\\n"))+'</pre></details>'}
+  renderWorkspace(s,idx>0?steps[idx-1]:null,insp);
+  var lastSectionName="";
+  upto.forEach(function(ev){var current=!priorSeqs[ev.seq],section=presentationFor(ev),marker=section.name&&section.name!==lastSectionName?'<div class="section-marker" aria-hidden="true">'+esc(section.name)+'</div>':'';lastSectionName=section.name;h+='<article class="lecture-output '+section.className+(current?' lecture-output-current':'')+'" data-output-seq="'+ev.seq+'"'+(section.name?' data-section="'+esc(section.name)+'"':'')+(current?' aria-current="step"':'')+'>'+marker+renderOutput(ev)+'</article>'});
   boardDisposers.forEach(function(dispose){dispose()});boardDisposers=[];
   stage.innerHTML=h||'<p class="muted">No content recorded.</p>';
   var activeOutput=stage.querySelector('.lecture-output-current');
@@ -228,8 +257,13 @@ function browserEventsAt(stepIndex){return outputEventsAt(stepIndex).filter(func
 function applyBrowserEvent(ev){var props=(ev.payload||{}).props||{},action=props.action||"open";if(action==="close")browserController.close(props.window_id||"reference");else browserController.open(props)}
 function syncReferenceWindows(from,to){
   if(!browserController||from===to||view==="reader")return;
-  var target=browserEventsAt(to),i,prior={};
-  if(to<from){browserController.closeAll();for(i=0;i<target.length;i++)applyBrowserEvent(target[i]);return}
+  var target=browserEventsAt(to),i,prior={},targetState={},ids={};
+  if(to<from){
+    browserEventsAt(from).forEach(function(e){var p=(e.payload||{}).props||{},id=p.window_id||"reference";ids[id]=true});
+    target.forEach(function(e){var p=(e.payload||{}).props||{},id=p.window_id||"reference";ids[id]=true;targetState[id]=p.action||"open"});
+    Object.keys(ids).forEach(function(id){if(targetState[id]!=="open")browserController.close(id)});
+    return;
+  }
   browserEventsAt(from).forEach(function(e){prior[e.seq]=true});
   for(i=0;i<target.length;i++)if(!prior[target[i].seq])applyBrowserEvent(target[i]);
 }
@@ -326,6 +360,7 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <div id="trace-layout">
 <section id="source-panel" hidden aria-label="Lecture source"></section>
 <main id="stage" tabindex="0" aria-label="Lecture stage"></main>
+<aside id="variable-panel" hidden aria-label="Workspace variables"></aside>
 </div>
 <p id="help" class="muted">Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via <code>?step=N</code>. Reduced-motion respected. Plots/components show recorded fallbacks.</p>
 <script id="lecture-data" type="application/json">{embedded}</script>

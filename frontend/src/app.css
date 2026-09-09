@@ -56,6 +56,8 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 .trace-layout { grid-template-columns: minmax(250px, 30%) minmax(0, 1fr); }
 .document-layout { grid-template-columns: minmax(0, 1fr); }
+.inspector-layout { grid-template-columns: minmax(0, 1fr) minmax(255px, 300px); }
+.trace-layout.inspector-layout { grid-template-columns: minmax(220px, 26%) minmax(0, 1fr) minmax(255px, 300px); }
 .viewbar {
   display: flex;
   flex-wrap: wrap;
@@ -98,29 +100,102 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
+  #variable-panel {
+    position: static;
+    max-height: none;
+    border-inline-start: 0;
+    border-top: 1px solid color-mix(in srgb, CanvasText 24%, Canvas);
+    padding: 1rem 0;
+  }
 }
 #stage {
   padding: 1.25rem 0;
   min-height: 200px;
 }
 .lecture-output {
+  --section-accent: color-mix(in srgb, CanvasText 58%, Canvas);
   margin: 0;
   padding: 0.85rem 0;
   border-top: 1px solid color-mix(in srgb, CanvasText 12%, Canvas);
   scroll-margin-block: 2rem;
 }
 .lecture-output:first-child { border-top: 0; }
+.section-tone-hero { --section-accent: #2563eb; }
+.section-tone-evidence { --section-accent: #0f766e; }
+.section-tone-code { --section-accent: #7c3aed; }
+.section-tone-recap { --section-accent: #b45309; }
+.section-marker {
+  margin: 0 0 0.7rem;
+  padding: 0.18rem 0;
+  border-bottom: 2px solid color-mix(in srgb, var(--section-accent) 52%, Canvas);
+  color: var(--section-accent);
+  font-family: var(--lectpy-code-font);
+  font-size: 0.68em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.section-density-compact { padding-block: 0.35rem; }
+.section-density-roomy { padding-block: 1.55rem; }
+.section-width-reading { max-inline-size: 72ch; }
+.section-width-wide { max-inline-size: 96ch; }
+.section-width-full { max-inline-size: none; }
+.section-align-center { text-align: center; }
+.section-align-center .lecture-media img,
+.section-align-center .lecture-media video { margin-inline: auto; }
+.section-tone-hero .section-marker { font-size: 0.76em; }
+.section-tone-evidence .lecture-table { border-inline-start: 0.28rem solid var(--section-accent); border-radius: 0; }
+.section-tone-code .lecture-code { border-inline-start: 0.28rem solid var(--section-accent); padding-inline-start: 0.8rem; }
 .view-presenter .lecture-output:not(.lecture-output-current) { opacity: 0.42; }
 .lecture-output-current {
-  margin-inline: -1rem;
+  margin-inline: 0;
   padding: 1.1rem 1rem 1.1rem 0.8rem;
   border-top-color: color-mix(in srgb, var(--trace-highlight, #d97706) 55%, Canvas);
-  border-inline-start: 0.35rem solid var(--trace-highlight, #d97706);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--trace-highlight, #d97706) 18%, Canvas), transparent 78%);
+  border-inline-start: 0.25rem solid var(--trace-highlight, #d97706);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--trace-highlight, #d97706) 7%, Canvas), transparent 72%);
 }
 .lecture-output-current + .lecture-output { border-top-color: color-mix(in srgb, var(--trace-highlight, #d97706) 28%, Canvas); }
 .view-reader .lecture-output { opacity: 1; border-top: 0; }
 .view-reader .lecture-output-current { margin-inline: 0; padding: 0.85rem 0; border-inline-start: 0; background: none; }
+#variable-panel {
+  min-width: 0;
+  align-self: stretch;
+  position: sticky;
+  top: 0.75rem;
+  max-height: calc(100vh - 1.5rem);
+  overflow: auto;
+  padding: 1.1rem 0 1.25rem 1rem;
+  border-inline-start: 1px solid color-mix(in srgb, CanvasText 24%, Canvas);
+}
+.workspace-heading { display: flex; justify-content: space-between; align-items: start; gap: 0.75rem; border-bottom: 1px solid color-mix(in srgb, CanvasText 22%, Canvas); padding-bottom: 0.45rem; }
+.workspace-heading h2 { margin: 0; font-size: 1.12rem; }
+.workspace-kicker { color: var(--trace-highlight, #d97706); font-family: var(--lectpy-code-font); font-size: 0.68em; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.workspace-count { min-width: 1.7rem; padding: 0.1rem 0.3rem; border: 1px solid color-mix(in srgb, CanvasText 30%, Canvas); font-family: var(--lectpy-code-font); font-size: 0.78em; text-align: center; }
+.workspace-location { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.7rem 0; font-family: var(--lectpy-code-font); font-size: 0.78em; }
+.call-stack { margin: 0 0 1rem; padding: 0.35rem 0 0.35rem 1.35rem; border-block: 1px solid color-mix(in srgb, CanvasText 16%, Canvas); font-size: 0.78em; }
+.call-stack li { padding: 0.3rem 0; }
+.call-stack li::marker { color: var(--trace-highlight, #d97706); font-family: var(--lectpy-code-font); }
+.call-stack li span { display: block; opacity: 0.65; }
+.call-stack-current code { color: var(--trace-highlight, #d97706); }
+.variable-table-wrap { overflow-x: auto; }
+.variable-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.78em; }
+.variable-table th, .variable-table td { padding: 0.35rem 0.28rem; border-top: 1px solid color-mix(in srgb, CanvasText 14%, Canvas); vertical-align: top; text-align: left; }
+.variable-table thead th { color: color-mix(in srgb, CanvasText 70%, Canvas); font-size: 0.82em; font-weight: 600; }
+.variable-table thead th:nth-child(1) { width: 25%; }
+.variable-table thead th:nth-child(2) { width: 52%; }
+.variable-table thead th:nth-child(3) { width: 23%; }
+.variable-name { overflow-wrap: anywhere; }
+.variable-value { overflow: hidden; }
+.variable-value code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.variable-type { color: color-mix(in srgb, CanvasText 68%, Canvas); overflow-wrap: anywhere; }
+.variable-row-changed { background: color-mix(in srgb, #0f766e 13%, Canvas); }
+.variable-row-changed .variable-name { color: #0f766e; }
+.variable-change { display: block; color: #0f766e; font-size: 0.8em; font-weight: 700; }
+.workspace-inspects { margin-top: 1rem; border-top: 1px solid color-mix(in srgb, CanvasText 20%, Canvas); padding-top: 0.6rem; font-size: 0.78em; }
+.workspace-inspects summary { cursor: pointer; font-weight: 600; }
+.workspace-inspects ul { margin: 0.55rem 0 0; padding-left: 1.1rem; }
+.workspace-inspects li { margin: 0.55rem 0; }
+.inspect-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 pre.code, pre.term {
   border-radius: 2px;
   padding: 0.75rem;

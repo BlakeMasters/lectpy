@@ -70,6 +70,7 @@ class ExecutionContext:
     log: EventLog = field(init=False)
     _objects: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _obj_counter: int = field(default=0, init=False, repr=False)
+    _presentation_stack: list[dict[str, str]] = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.log = EventLog(self.session_id, self.execution_id)
@@ -90,6 +91,15 @@ class ExecutionContext:
     def release_object(self, handle: str) -> None:
         self._objects.pop(handle, None)
 
+    @contextmanager
+    def presentation_scope(self, style: dict[str, str]) -> Iterator[None]:
+        """Apply a bounded projection hint to events emitted in this scope."""
+        self._presentation_stack.append(dict(style))
+        try:
+            yield
+        finally:
+            self._presentation_stack.pop()
+
     # -- emit -----------------------------------------------------------------
     def emit(
         self,
@@ -108,9 +118,10 @@ class ExecutionContext:
             len(self.log) >= self.policy.max_events
         ):
             raise RuntimeError(f"event budget exceeded ({self.policy.max_events})")
-        return self.log.append(
-            kind, payload or {}, source_location=loc, artifact_refs=artifact_refs
-        )
+        data = dict(payload or {})
+        if self._presentation_stack and kind not in {"session_start", "session_end"}:
+            data.setdefault("presentation", dict(self._presentation_stack[-1]))
+        return self.log.append(kind, data, source_location=loc, artifact_refs=artifact_refs)
 
     def inspect(
         self,
