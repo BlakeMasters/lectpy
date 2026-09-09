@@ -26,7 +26,7 @@ export function Whiteboard({ event }: { event: LectureEvent }) {
     states.set(key, existing);
     return existing;
   });
-  const [loaded, setLoaded] = useState(!!state.open);
+  const [loaded, setLoaded] = useState(!!state.open || Boolean(state.commits?.length));
   const [error, setError] = useState("");
   const host = useRef<HTMLDivElement>(null);
   const props = event.payload?.["props"] as Record<string, unknown> | undefined;

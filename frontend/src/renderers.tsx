@@ -9,6 +9,8 @@ import type { LectureEvent } from "./protocol";
 import { isSafeUrl } from "./select";
 import { useResource } from "./resources";
 import { Whiteboard } from "./Whiteboard";
+import { texToMathML } from "../../src/lecture/static/equation.js";
+import { umlDescription, umlSvg } from "../../src/lecture/static/uml.js";
 
 type P = { event: LectureEvent };
 const BrowserWindow = lazy(() => import("./BrowserWindow"));
@@ -101,6 +103,49 @@ export function PlotBlock({ event }: P) {
       <summary>Plot (static fallback — spec retained)</summary>
       <pre className="code">{JSON.stringify(p["spec"] ?? {}, null, 2)}</pre>
     </details>
+  );
+}
+
+export function EquationBlock({ event }: P) {
+  const p = payload(event);
+  const tex = str(p["tex"]);
+  const alt = str(p["alt"]) || `Equation: ${tex}`;
+  const title = str(p["title"]);
+  const outputId = str(p["output_id"]) || undefined;
+  const display = p["display"] !== false;
+  return (
+    <figure className="lecture-equation" data-output-id={outputId}>
+      <div
+        className="lecture-equation-math"
+        aria-label={alt}
+        dangerouslySetInnerHTML={{ __html: texToMathML(tex, { display, alt }) }}
+      />
+      {title ? <figcaption>{title}</figcaption> : null}
+      <p className="equation-alt sr-only">{alt}</p>
+    </figure>
+  );
+}
+
+export function UmlBlock({ event }: P) {
+  const p = payload(event);
+  const kind = str(p["uml_kind"], "class");
+  const spec = p["spec"] && typeof p["spec"] === "object"
+    ? p["spec"] as Record<string, unknown>
+    : {};
+  const alt = str(p["alt"]) || umlDescription(kind, spec);
+  const title = str(p["title"]);
+  const outputId = str(p["output_id"]) || undefined;
+  return (
+    <figure className="lecture-uml" data-output-id={outputId}>
+      <div
+        className="lecture-uml-svg"
+        role="img"
+        aria-label={alt}
+        dangerouslySetInnerHTML={{ __html: umlSvg(kind, spec) }}
+      />
+      {title ? <figcaption>{title}</figcaption> : null}
+      <p className="uml-alt sr-only">{alt}</p>
+    </figure>
   );
 }
 

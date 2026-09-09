@@ -25,6 +25,8 @@ EVENT_KINDS = frozenset(
         "video",
         "link",
         "plot",
+        "equation",
+        "uml",
         "inspect",
         "clear",
         "error",
@@ -206,7 +208,18 @@ def replay_to_presentation(events: list[dict[str, Any]]) -> dict[str, Any]:
         kind = item.get("kind")
         if kind == "step":
             steps.append(item.get("payload", {}))
-        elif kind in ("text", "note", "image", "video", "link", "plot", "terminal", "component"):
+        elif kind in (
+            "text",
+            "note",
+            "image",
+            "video",
+            "link",
+            "plot",
+            "equation",
+            "uml",
+            "terminal",
+            "component",
+        ):
             outputs.append({"kind": kind, **item.get("payload", {})})
         elif kind == "inspect":
             payload = item.get("payload", {})

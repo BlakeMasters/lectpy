@@ -11,7 +11,7 @@
 import type { EventKind, LectureEvent, TraceReference } from "./protocol";
 
 export const RENDERABLE_KINDS: readonly EventKind[] = [
-  "text", "note", "image", "video", "link", "plot", "terminal", "component", "error",
+  "text", "note", "image", "video", "link", "plot", "equation", "uml", "terminal", "component", "error",
 ];
 
 export function stepEvents(events: LectureEvent[]): LectureEvent[] {

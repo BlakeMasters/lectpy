@@ -11,7 +11,7 @@
     "kind": {
       "type": "string",
       "enum": ["session_start", "session_end", "step", "text", "note", "image",
-               "video", "link", "plot", "inspect", "clear", "error",
+               "video", "link", "plot", "equation", "uml", "inspect", "clear", "error",
                "terminal", "component", "snapshot"]
     },
     "payload": { "type": "object" },

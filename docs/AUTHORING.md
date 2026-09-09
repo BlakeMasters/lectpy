@@ -16,7 +16,7 @@ def main():
           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}})
 ```
 
-Primitives: `text`, `code`, `table`, `note`, `image`, `video`, `link`, `plot`, `inspect_value`,
+Primitives: `text`, `code`, `table`, `note`, `image`, `video`, `link`, `plot`, `equation`, `uml`, `inspect_value`,
 `clear`, `system_text`, `component`, `whiteboard`, `browser_open`, `browser_close`, `terminal`.
 All emit typed events on the
 scoped `ExecutionContext` — never a process-global accumulator.

@@ -48,9 +48,10 @@ pre.code{background:#8881;border-radius:2px;padding:.75rem;overflow:auto}
 .lecture-media{margin:1rem 0}.lecture-media img,.lecture-media video{display:block;max-width:100%;height:auto}.lecture-media figcaption{margin-top:.5rem}
 .lecture-browser-window{border-block:1px solid color-mix(in srgb,CanvasText 24%,Canvas);padding:1rem 0;margin:1rem 0;background:none}.lecture-browser-window h3{margin:.1rem 0 .5rem}.browser-window-url{overflow-wrap:anywhere;word-break:break-word}.browser-window-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.browser-window-actions a{padding:.35rem .65rem}.browser-window-status{min-height:1.4em;margin:.6rem 0 0}
 .lecture-table{overflow:auto;max-height:480px;margin:1rem 0;border:1px solid #8884;border-radius:2px}
+.lecture-equation{margin:1.25rem 0;max-inline-size:100%;overflow-x:auto}.lecture-equation-math{min-height:1.5em;text-align:center;font-size:1.18em}.lecture-equation-math math{max-width:100%}.lecture-equation figcaption,.lecture-uml figcaption{margin-top:.5rem;font-size:.78em;opacity:.72}.lecture-uml{margin:1.25rem 0;max-inline-size:100%;overflow-x:auto}.lecture-uml-svg{min-width:520px}.lecture-uml-svg svg{display:block;width:100%;height:auto;max-height:70vh}
 .lecture-table table{border-collapse:collapse;width:100%;text-align:left}.lecture-table caption{text-align:left;padding:.75rem;font-weight:600}.lecture-table th,.lecture-table td{padding:.5rem .75rem;border-top:1px solid #8884;vertical-align:top;min-width:8ch;max-width:35ch;overflow-wrap:anywhere}.lecture-table thead{position:sticky;top:0;background:Canvas}.lecture-table tbody tr:nth-child(even){background:#8881}.lecture-table th{white-space:nowrap}
 pre.term{background:#111;color:#eee;border-radius:2px;padding:.75rem;overflow:auto;max-height:320px}
-.muted{opacity:.7;font-size:.9em}.viewbar{display:flex;flex-wrap:wrap;gap:.85rem 1.25rem;align-items:center;margin:0;padding:.7rem 0;border-bottom:1px solid color-mix(in srgb,CanvasText 18%,Canvas)}.viewbar label{font-size:.86em;letter-spacing:.02em}.viewbar select{font:inherit;color:CanvasText;background:Canvas;border:1px solid color-mix(in srgb,CanvasText 42%,Canvas);border-radius:2px;padding:.25rem .4rem}.viewbar select:focus-visible{outline:3px solid #0969da;outline-offset:2px}
+.muted{opacity:.7;font-size:.9em}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.viewbar{display:flex;flex-wrap:wrap;gap:.85rem 1.25rem;align-items:center;margin:0;padding:.7rem 0;border-bottom:1px solid color-mix(in srgb,CanvasText 18%,Canvas)}.viewbar label{font-size:.86em;letter-spacing:.02em}.viewbar select{font:inherit;color:CanvasText;background:Canvas;border:1px solid color-mix(in srgb,CanvasText 42%,Canvas);border-radius:2px;padding:.25rem .4rem}.viewbar select:focus-visible{outline:3px solid #0969da;outline-offset:2px}
 body[data-view=reader] #stepbar{display:none}body[data-view=reader] #stage{border:0;padding:0}body[data-view=presenter] #stage{font-size:1.35rem;min-height:60vh;padding:2rem 0 4rem}body:not([data-view=inspector]) #help{display:none}
 @media(max-width:900px){#trace-layout{grid-template-columns:1fr}#source-panel{padding-right:0}#variable-panel{position:static;max-height:none;border-inline-start:0;border-top:1px solid color-mix(in srgb,CanvasText 24%,Canvas);padding:1rem 0}}
 @media(max-width:600px){body{padding:0 1rem 2rem}body[data-view=presenter] #stage{font-size:1.1rem;padding:1rem 0 2rem}}
@@ -166,6 +167,16 @@ function renderOutput(ev){
   if(ev.kind==="video"){return '<figure class="lecture-media"><video controls preload="metadata" aria-label="'+esc(p.title||"Video")+'" src="'+esc(p.src||"")+'"></video><figcaption>'+esc(p.title||"")+'</figcaption></figure>'}
   if(ev.kind==="link"){return '<p><a href="'+esc(p.href||"#")+'">'+esc(p.label||p.href||"")+'</a></p>'}
   if(ev.kind==="plot"){return '<details><summary>Plot (static fallback — spec retained)</summary><pre class="code">'+esc(JSON.stringify(p.spec||{},null,2))+'</pre></details>'}
+  if(ev.kind==="equation"){
+    var tex=String(p.tex||""),alt=String(p.alt||("Equation: "+tex)),equationId=p.output_id?String(p.output_id):"";
+    var math=typeof texToMathML==="function"?texToMathML(tex,{display:p.display!==false,alt:alt}):'<pre class="code">'+esc(tex)+'</pre>';
+    return '<figure class="lecture-equation"'+(equationId?' data-output-id="'+esc(equationId)+'"':'')+'><div class="lecture-equation-math" aria-label="'+esc(alt)+'">'+math+'</div>'+(p.title?'<figcaption>'+esc(p.title)+'</figcaption>':'')+'<p class="sr-only">'+esc(alt)+'</p></figure>';
+  }
+  if(ev.kind==="uml"){
+    var umlKind=String(p.uml_kind||"class"),umlSpec=p.spec&&typeof p.spec==="object"?p.spec:{},umlAlt=String(p.alt||("UML "+umlKind+" diagram")),umlId=p.output_id?String(p.output_id):"";
+    var svg=typeof umlSvg==="function"?umlSvg(umlKind,umlSpec):'<pre class="code">'+esc(JSON.stringify(umlSpec,null,2))+'</pre>';
+    return '<figure class="lecture-uml"'+(umlId?' data-output-id="'+esc(umlId)+'"':'')+'><div class="lecture-uml-svg" role="img" aria-label="'+esc(umlAlt)+'">'+svg+'</div>'+(p.title?'<figcaption>'+esc(p.title)+'</figcaption>':'')+'<p class="sr-only">'+esc(umlAlt)+'</p></figure>';
+  }
   if(ev.kind==="terminal"){
     if(p.output){return '<pre class="term">'+esc(p.output)+'</pre>'}
     var cmd="$ "+(Array.isArray(p.argv)?p.argv.join(" "):String(p.argv||""));
@@ -223,7 +234,7 @@ function render(){
       host.replaceChildren();
       try{boardDisposers.push(mountWhiteboard(host,props,state))}catch(error){host.textContent="Whiteboard could not open: "+error.message}
     }
-    if(state.open){mount()}else{
+    if(state.open||(state.commits&&state.commits.length)){mount()}else{
       var button=document.createElement("button");button.textContent="Open "+(props.title||"whiteboard");
       button.addEventListener("click",function(){state.open=true;mount()});host.append(button);
     }
@@ -322,6 +333,14 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
         modules.append(
             (Path(__file__).parent / "static" / "whiteboard.js").read_text(encoding="utf-8")
         )
+    has_equation = any(event.get("kind") == "equation" for event in bundle.get("events", []))
+    has_uml = any(event.get("kind") == "uml" for event in bundle.get("events", []))
+    if has_equation:
+        modules.append(
+            (Path(__file__).parent / "static" / "equation.js").read_text(encoding="utf-8")
+        )
+    if has_uml:
+        modules.append((Path(__file__).parent / "static" / "uml.js").read_text(encoding="utf-8"))
     if has_browser_window:
         modules.append(
             (Path(__file__).parent / "static" / "browser_window.js").read_text(encoding="utf-8")

@@ -32,12 +32,14 @@ import type { LectureBundle, LectureEvent } from "./protocol";
 import {
   ComponentBlock,
   ErrorBlock,
+  EquationBlock,
   ImageBlock,
   LinkBlock,
   NoteBlock,
   PlotBlock,
   TerminalBlock,
   TextBlock,
+  UmlBlock,
   VideoBlock,
 } from "./renderers";
 import { CommandRegistry, ExecutionRegistry, RendererRegistry } from "./registry";
@@ -65,6 +67,8 @@ function buildRegistries() {
   renderers.register({ kinds: ["video"], component: VideoBlock, ...opts });
   renderers.register({ kinds: ["link"], component: LinkBlock, ...opts });
   renderers.register({ kinds: ["plot"], component: PlotBlock, ...opts });
+  renderers.register({ kinds: ["equation"], component: EquationBlock, ...opts });
+  renderers.register({ kinds: ["uml"], component: UmlBlock, ...opts });
   renderers.register({ kinds: ["terminal"], component: TerminalBlock, ...opts });
   renderers.register({ kinds: ["component"], component: ComponentBlock, ...opts });
   renderers.register({ kinds: ["error"], component: ErrorBlock, ...opts });

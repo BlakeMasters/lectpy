@@ -1,5 +1,7 @@
 import pytest
 
+from lecture import equation, uml
+from lecture.context import ExecutionContext, execution_scope
 from lecture.events import EventLog, replay_to_presentation, validate_event
 
 
@@ -114,3 +116,20 @@ def test_golden_replay_fixture():
     assert len(pres["steps"]) == 2
     assert pres["inspect_state"] == {"w": "0.0"}
     assert pres["outputs"][0]["kind"] == "text"
+
+
+def test_equation_and_uml_are_first_class_replay_outputs():
+    ctx = ExecutionContext()
+    with execution_scope(ctx):
+        equation(r"x_{t+1} = x_t - \eta g_t", output_id="update")
+        uml(
+            "class",
+            {"classes": [{"name": "Lecture", "methods": ["step()"]}]},
+            output_id="lecture-class",
+        )
+    kinds = [event.kind for event in ctx.log.subscribe()]
+    assert kinds == ["equation", "uml"]
+    outputs = replay_to_presentation(ctx.log.to_list())["outputs"]
+    assert [output["kind"] for output in outputs] == ["equation", "uml"]
+    assert outputs[0]["output_id"] == "update"
+    assert outputs[1]["uml_kind"] == "class"

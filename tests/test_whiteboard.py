@@ -46,3 +46,17 @@ def test_plain_exports_do_not_include_drawing_engine(tmp_path):
 def test_whiteboard_rejects_bad_configuration(kwargs):
     with execution_scope(ExecutionContext()), pytest.raises((ValueError, TypeError)):
         whiteboard(**kwargs)
+
+
+def test_insertable_whiteboard_carries_stable_output_metadata():
+    ctx = ExecutionContext()
+    with execution_scope(ctx):
+        event = whiteboard(
+            "Derivation",
+            insertable=True,
+            output_id="derivation-board",
+            alt="A hand-worked derivation on a grid.",
+        )
+    assert event.payload["props"]["insertable"] is True
+    assert event.payload["props"]["output_id"] == "derivation-board"
+    assert event.payload["props"]["alt"] == "A hand-worked derivation on a grid."

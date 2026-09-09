@@ -18,6 +18,13 @@ export interface Drawing {
   background: string;
   items: DrawingItem[];
 }
+export interface BoardCommit {
+  revision: number;
+  drawing: Drawing;
+  svg: string;
+  alt: string;
+  outputId?: string;
+}
 export class BoardModel {
   constructor(drawing?: Drawing);
   drawing: Drawing;
@@ -34,6 +41,7 @@ export class BoardModel {
 export interface BoardState {
   model?: BoardModel;
   open?: boolean;
+  commits?: BoardCommit[];
 }
 export const TOOLS: string[];
 export function pointerSample(

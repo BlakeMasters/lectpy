@@ -398,7 +398,7 @@ export function drawingSvg(drawing) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${d.width}" height="${d.height}" viewBox="0 0 ${d.width} ${d.height}">${content}</svg>`;
 }
 
-const STYLE = `.lp-board{font:14px/1.4 system-ui,sans-serif;color:CanvasText;margin:1rem 0}.lp-board [hidden]{display:none!important}.lp-board button,.lp-board input,.lp-board select{font:inherit;color:CanvasText;background:Canvas;border:1px solid #888;border-radius:5px;padding:.4rem}.lp-board button{cursor:pointer}.lp-board button:disabled{opacity:.45}.lp-board :focus-visible{outline:3px solid #2563eb;outline-offset:2px}.lp-board .wb-toolbar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.5rem 0}.lp-board label{display:inline-flex;align-items:center;gap:.3rem}.lp-board input[type=text]{min-width:5rem;width:12rem;max-width:100%}.lp-board input[type=color]{width:2.5rem;height:2.3rem;padding:.15rem}.lp-board input[type=range]{width:6rem}.lp-board .wb-surface{position:relative;width:100%;background:white;border:1px solid #94a3b8;border-radius:5px;overflow:hidden}.lp-board canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.lp-board canvas.wb-input{touch-action:none;cursor:crosshair}.lp-board .wb-help{font-size:.9em;opacity:.75;margin:.4rem 0}.lp-board:fullscreen{background:Canvas;padding:1rem;box-sizing:border-box;overflow:auto}.lp-board:fullscreen .wb-surface{max-height:75vh;width:auto;max-width:100%;margin:auto}`;
+const STYLE = `.lp-board{font:14px/1.4 system-ui,sans-serif;color:CanvasText;margin:1rem 0}.lp-board [hidden]{display:none!important}.lp-board button,.lp-board input,.lp-board select{font:inherit;color:CanvasText;background:Canvas;border:1px solid #888;border-radius:5px;padding:.4rem}.lp-board button{cursor:pointer}.lp-board button:disabled{opacity:.45}.lp-board :focus-visible{outline:3px solid #2563eb;outline-offset:2px}.lp-board .wb-toolbar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.5rem 0}.lp-board label{display:inline-flex;align-items:center;gap:.3rem}.lp-board input[type=text]{min-width:5rem;width:12rem;max-width:100%}.lp-board input[type=color]{width:2.5rem;height:2.3rem;padding:.15rem}.lp-board input[type=range]{width:6rem}.lp-board .wb-surface{position:relative;width:100%;background:white;border:1px solid #94a3b8;border-radius:5px;overflow:hidden}.lp-board canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.lp-board canvas.wb-input{touch-action:none;cursor:crosshair}.lp-board .wb-help{font-size:.9em;opacity:.75;margin:.4rem 0}.lp-board .wb-commits{margin:1rem 0}.lp-board .wb-commit{border-block:1px solid #94a3b8;padding:.7rem 0;margin:.7rem 0}.lp-board .wb-commit-svg{max-width:100%;overflow:auto}.lp-board .wb-commit-svg svg{display:block;width:100%;height:auto}.lp-board .wb-commit-meta{font-size:.85em;opacity:.72}.lp-board:fullscreen{background:Canvas;padding:1rem;box-sizing:border-box;overflow:auto}.lp-board:fullscreen .wb-surface{max-height:75vh;width:auto;max-width:100%;margin:auto}`;
 
 /** Mount into an owned node; state is caller-owned and survives replay remounts. */
 export function mountWhiteboard(host, props = {}, state = {}) {
@@ -426,12 +426,12 @@ export function mountWhiteboard(host, props = {}, state = {}) {
     <label><input class="wb-pen-only" type="checkbox" checked> Ignore touch (pen + mouse)</label>
     <label>Paper <select class="wb-paper"><option value="blank">Blank</option><option value="grid">Grid</option><option value="dots">Dots</option></select></label>
     <button type="button" data-action="undo">Undo</button><button type="button" data-action="redo">Redo</button><button type="button" data-action="clear">Clear board</button></div>
-    <div class="wb-toolbar"><label>Text <input class="wb-text" type="text" maxlength="1000" placeholder="Label or equation"></label><button type="button" data-action="text">Add text at center</button>
+    <div class="wb-toolbar"><label>Text <input class="wb-text" type="text" maxlength="1000" placeholder="Label or equation"></label><button type="button" data-action="text">Add text at center</button><button type="button" data-action="insert"${props.insertable === true ? "" : " hidden"}>Insert snapshot</button>
     <button type="button" data-action="svg">Save SVG</button><button type="button" data-action="png">Save PNG</button><button type="button" data-action="json">Save drawing</button>
     <label>Load drawing <input class="wb-file" type="file" accept="application/json,.json" style="max-width:13rem"></label></div>
     <div class="wb-surface"><canvas class="wb-base" aria-hidden="true"></canvas><canvas class="wb-input" tabindex="0" role="img" aria-label="Drawing surface. Use pen, mouse, or enabled touch. Use Add text at center for keyboard text input."></canvas></div>
     <p class="wb-help">Pair your stylus in your operating system. Pressure and eraser work when exposed by your device. Touch is ignored by default. Ctrl/Cmd+Z undoes; Shift+Z redoes. Drawings persist while stepping, not after reload; save to keep them.</p>
-    <p class="wb-status" role="status" aria-live="polite"></p><p class="wb-download" hidden><a></a></p><details><summary>Board text alternative</summary><ul class="wb-description"></ul></details></div>`;
+    <p class="wb-status" role="status" aria-live="polite"></p><p class="wb-download" hidden><a></a></p><details><summary>Board text alternative</summary><ul class="wb-description"></ul></details></div><div class="wb-commits" aria-live="polite"></div>`;
   host.append(root);
   const $ = (selector) => root.querySelector(selector);
   $(".wb-title").textContent = props.title || "Whiteboard";
@@ -470,10 +470,35 @@ export function mountWhiteboard(host, props = {}, state = {}) {
     frame = 0,
     painted = 0,
     disposed = false;
+  state.commits = Array.isArray(state.commits) ? state.commits : [];
   const status = (message) => {
     $(".wb-status").textContent = message;
   };
   const clearInk = () => ink.clearRect(0, 0, d.width, d.height);
+  function renderCommits() {
+    const commits = $(".wb-commits");
+    commits.replaceChildren();
+    if (!state.commits.length) return;
+    const heading = document.createElement("h3");
+    heading.textContent = "Inserted snapshots";
+    commits.append(heading);
+    for (const commit of state.commits) {
+      const figure = document.createElement("figure");
+      figure.className = "wb-commit";
+      const visual = document.createElement("div");
+      visual.className = "wb-commit-svg";
+      visual.setAttribute("role", "img");
+      visual.setAttribute("aria-label", commit.alt || "Inserted whiteboard snapshot");
+      visual.innerHTML = commit.svg;
+      const caption = document.createElement("figcaption");
+      caption.className = "wb-commit-meta";
+      caption.textContent = `Snapshot ${commit.revision}${commit.outputId ? ` · ${commit.outputId}` : ""}`;
+      const description = document.createElement("p");
+      description.textContent = commit.alt || "Inserted whiteboard snapshot";
+      figure.append(visual, caption, description);
+      commits.append(figure);
+    }
+  }
   function refresh(message) {
     background(ctx, d);
     for (const item of model.items)
@@ -490,6 +515,7 @@ export function mountWhiteboard(host, props = {}, state = {}) {
           : `${item.tool}, ${item.color}, ${item.points.length} point(s)`;
       description.append(li);
     }
+    renderCommits();
     status(
       message ||
         `${model.items.length} object(s). ${model.items.length > 100 ? "Last 100 described below." : ""}`,
@@ -634,6 +660,22 @@ export function mountWhiteboard(host, props = {}, state = {}) {
   function cancel() {
     if (active !== null) finish({ pointerId: active }, true);
   }
+  function insertSnapshot() {
+    if (props.insertable !== true) return;
+    const drawing = model.snapshot();
+    const revision = state.commits.length + 1;
+    state.commits.push({
+      revision,
+      drawing,
+      svg: drawingSvg(drawing),
+      alt: props.alt || `Whiteboard snapshot ${revision}`,
+      outputId: props.output_id || "",
+    });
+    // Keep an accidental repeated-click session bounded while preserving the
+    // editable drawing on the board itself.
+    if (state.commits.length > 12) state.commits.shift();
+    refresh(`Snapshot ${revision} inserted below the board.`);
+  }
   function open(value) {
     cancel();
     state.open = value;
@@ -698,6 +740,8 @@ export function mountWhiteboard(host, props = {}, state = {}) {
       } else if (action === "undo" || action === "redo" || action === "clear") {
         model[action]();
         refresh();
+      } else if (action === "insert") {
+        insertSnapshot();
       } else if (action === "text")
         addText({ x: d.width / 2, y: d.height / 2, p: 0.5 });
       else if (action === "svg")

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import functools
 import inspect as pyinspect
+import json
+import re
 import subprocess
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import contextmanager
@@ -29,6 +31,8 @@ __all__ = [
     "video",
     "link",
     "plot",
+    "equation",
+    "uml",
     "inspect_value",
     "clear",
     "system_text",
@@ -70,6 +74,18 @@ def _emit(kind: str, payload: dict[str, Any]) -> Event:
         source_location=_caller_location(),
         artifact_refs=sorted(collect_refs(payload)),
     )
+
+
+def _output_id(value: str | None) -> str | None:
+    """Validate a stable author id used to connect related visual outputs."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", value):
+        raise ValueError(
+            "output_id must start with a letter or number and contain at most 64 "
+            "letters, numbers, '_' or '-'"
+        )
+    return value
 
 
 def text(markdown: str) -> Event:
@@ -129,6 +145,78 @@ def plot(spec: dict[str, Any]) -> Event:
     return _emit("plot", {"spec": spec})
 
 
+def equation(
+    tex: str,
+    *,
+    display: bool = True,
+    alt: str = "",
+    title: str = "",
+    output_id: str | None = None,
+) -> Event:
+    """Render a bounded TeX equation with a native MathML fallback.
+
+    The event keeps the original TeX rather than embedding renderer HTML. The
+    static and React viewers use the same small renderer, so bundles remain
+    offline and do not require a KaTeX/MathJax download.
+    """
+    if not isinstance(tex, str) or not tex.strip() or len(tex) > 12_000:
+        raise ValueError("equation tex must be a non-empty string of at most 12000 characters")
+    if type(display) is not bool:
+        raise TypeError("equation display must be a bool")
+    if not isinstance(alt, str) or len(alt) > 500:
+        raise ValueError("equation alt must be a string of at most 500 characters")
+    if not isinstance(title, str) or len(title) > 200:
+        raise ValueError("equation title must be a string of at most 200 characters")
+    payload: dict[str, Any] = {
+        "tex": tex,
+        "display": display,
+        "alt": alt or f"Equation: {tex}",
+        "title": title,
+    }
+    if (clean_id := _output_id(output_id)) is not None:
+        payload["output_id"] = clean_id
+    return _emit("equation", payload)
+
+
+def uml(
+    kind: str,
+    spec: Mapping[str, Any],
+    *,
+    title: str = "",
+    alt: str = "",
+    output_id: str | None = None,
+) -> Event:
+    """Render a structured UML class or sequence diagram.
+
+    ``spec`` is deliberately data, not a renderer-specific SVG/string. This
+    gives static and live viewers a safe visual plus a text description and
+    leaves room for alternate renderers without changing lecture source.
+    """
+    if kind not in {"class", "sequence"}:
+        raise ValueError("uml kind must be 'class' or 'sequence'")
+    if not isinstance(spec, Mapping):
+        raise TypeError("uml spec must be a mapping")
+    try:
+        encoded = json.dumps(spec, ensure_ascii=False, separators=(",", ":"))
+    except (TypeError, ValueError) as exc:
+        raise TypeError("uml spec must contain JSON-compatible values") from exc
+    if len(encoded.encode("utf-8")) > 200_000:
+        raise ValueError("uml spec must be at most 200000 UTF-8 bytes")
+    if not isinstance(title, str) or len(title) > 200:
+        raise ValueError("uml title must be a string of at most 200 characters")
+    if not isinstance(alt, str) or len(alt) > 1000:
+        raise ValueError("uml alt must be a string of at most 1000 characters")
+    payload: dict[str, Any] = {
+        "uml_kind": kind,
+        "spec": dict(spec),
+        "title": title,
+        "alt": alt or f"UML {kind} diagram",
+    }
+    if (clean_id := _output_id(output_id)) is not None:
+        payload["output_id"] = clean_id
+    return _emit("uml", payload)
+
+
 def inspect_value(name: str, value: Any) -> Event:
     """Lazy inspector: large values travel as handle + preview, not eager JSON."""
     ctx = require_current()
@@ -145,6 +233,9 @@ def whiteboard(
     width: int = 1200,
     height: int = 675,
     background: str = "grid",
+    insertable: bool = False,
+    output_id: str | None = None,
+    alt: str = "",
 ) -> Event:
     """Spawn a local drawing surface with pen, shapes, text and portable exports.
 
@@ -160,9 +251,23 @@ def whiteboard(
         raise ValueError("whiteboard height must be an integer from 180 to 2160")
     if background not in {"blank", "grid", "dots"}:
         raise ValueError("whiteboard background must be blank, grid, or dots")
-    return component(
-        "whiteboard", {"title": title, "width": width, "height": height, "background": background}
-    )
+    if type(insertable) is not bool:
+        raise TypeError("whiteboard insertable must be a bool")
+    if not isinstance(alt, str) or len(alt) > 1000:
+        raise ValueError("whiteboard alt must be a string of at most 1000 characters")
+    props: dict[str, Any] = {
+        "title": title,
+        "width": width,
+        "height": height,
+        "background": background,
+    }
+    if insertable:
+        props["insertable"] = True
+    if (clean_id := _output_id(output_id)) is not None:
+        props["output_id"] = clean_id
+    if alt:
+        props["alt"] = alt
+    return component("whiteboard", props)
 
 
 def _browser_window_id(window_id: str) -> str:

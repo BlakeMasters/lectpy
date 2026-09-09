@@ -6,7 +6,7 @@ export const SCHEMA_VERSION = 1 as const;
 
 export type EventKind =
   | "session_start" | "session_end" | "step" | "text" | "note"
-  | "image" | "video" | "link" | "plot" | "inspect"
+  | "image" | "video" | "link" | "plot" | "equation" | "uml" | "inspect"
   | "clear" | "error" | "terminal" | "component" | "snapshot";
 
 export interface SourceLocation { file: string; line: number; func?: string }

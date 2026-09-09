@@ -211,6 +211,13 @@ pre.code { background: #8881; }
 .lecture-table thead { position: sticky; top: 0; background: Canvas; }
 .lecture-table th { white-space: nowrap; }
 .lecture-table tbody tr:nth-child(even) { background: #8881; }
+.lecture-equation { margin: 1.25rem 0; max-inline-size: 100%; overflow-x: auto; }
+.lecture-equation-math { min-height: 1.5em; text-align: center; font-size: 1.18em; }
+.lecture-equation-math math { max-width: 100%; }
+.lecture-equation figcaption, .lecture-uml figcaption { margin-top: 0.5rem; font-size: 0.78em; opacity: 0.72; }
+.lecture-uml { margin: 1.25rem 0; max-inline-size: 100%; overflow-x: auto; }
+.lecture-uml-svg { min-width: 520px; }
+.lecture-uml-svg svg { display: block; width: 100%; height: auto; max-height: 70vh; }
 pre.term {
   background: #111;
   color: #eee;

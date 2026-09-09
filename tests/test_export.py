@@ -1,6 +1,6 @@
 import json
 
-from lecture import text
+from lecture import equation, text, uml
 from lecture.context import ExecutionContext, execution_scope
 from lecture.events import replay_to_presentation
 from lecture.export_static import export_static
@@ -59,3 +59,18 @@ def test_trace_json_roundtrip_is_replayable(tmp_path):
     ctx = TraceExecutor(policy=default_policy("local-trusted")).trace_file(ex)
     items = ctx.log.to_list()
     assert replay_to_presentation(items)["steps"]
+
+
+def test_static_export_inlines_only_visual_modules_in_use(tmp_path):
+    ctx = ExecutionContext()
+    with execution_scope(ctx):
+        equation(r"\frac{a}{b}", output_id="fraction")
+        uml(
+            "sequence",
+            {"participants": ["A", "B"], "messages": [{"from": "A", "to": "B", "label": "go"}]},
+        )
+    out = export_static(ctx, LectureManifest(title="Visuals"), tmp_path / "dist")
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert "export function texToMathML" in html
+    assert "export function umlSvg" in html
+    assert 'kind": "equation"' in (out / "lecture.json").read_text(encoding="utf-8")
