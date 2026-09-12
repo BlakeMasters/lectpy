@@ -400,6 +400,20 @@ export function drawingSvg(drawing) {
 
 const STYLE = `.lp-board{font:14px/1.4 system-ui,sans-serif;color:CanvasText;margin:1rem 0}.lp-board [hidden]{display:none!important}.lp-board button,.lp-board input,.lp-board select{font:inherit;color:CanvasText;background:Canvas;border:1px solid #888;border-radius:5px;padding:.4rem}.lp-board button{cursor:pointer}.lp-board button:disabled{opacity:.45}.lp-board :focus-visible{outline:3px solid #2563eb;outline-offset:2px}.lp-board .wb-toolbar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.5rem 0}.lp-board label{display:inline-flex;align-items:center;gap:.3rem}.lp-board input[type=text]{min-width:5rem;width:12rem;max-width:100%}.lp-board input[type=color]{width:2.5rem;height:2.3rem;padding:.15rem}.lp-board input[type=range]{width:6rem}.lp-board .wb-surface{position:relative;width:100%;background:white;border:1px solid #94a3b8;border-radius:5px;overflow:hidden}.lp-board canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.lp-board canvas.wb-input{touch-action:none;cursor:crosshair}.lp-board .wb-help{font-size:.9em;opacity:.75;margin:.4rem 0}.lp-board .wb-commits{margin:1rem 0}.lp-board .wb-commit{border-block:1px solid #94a3b8;padding:.7rem 0;margin:.7rem 0}.lp-board .wb-commit-svg{max-width:100%;overflow:auto}.lp-board .wb-commit-svg svg{display:block;width:100%;height:auto}.lp-board .wb-commit-meta{font-size:.85em;opacity:.72}.lp-board:fullscreen{background:Canvas;padding:1rem;box-sizing:border-box;overflow:auto}.lp-board:fullscreen .wb-surface{max-height:75vh;width:auto;max-width:100%;margin:auto}`;
 
+/** Capture an independent revision; evict old snapshots without reusing ids. */
+export function insertBoardSnapshot(state, props = {}) {
+  const commits = Array.isArray(state.commits) ? state.commits : [];
+  const revision = Math.max(0, ...commits.map((commit) => commit.revision)) + 1;
+  const drawing = state.model.snapshot();
+  const commit = {
+    revision, drawing, svg: drawingSvg(drawing),
+    alt: props.alt || `Whiteboard snapshot ${revision}`,
+    outputId: props.output_id || "",
+  };
+  state.commits = [...commits.slice(-11), commit];
+  return commit;
+}
+
 /** Mount into an owned node; state is caller-owned and survives replay remounts. */
 export function mountWhiteboard(host, props = {}, state = {}) {
   const model =
@@ -458,7 +472,13 @@ export function mountWhiteboard(host, props = {}, state = {}) {
   for (const context of [ctx, ink]) context.scale(ratio, ratio);
   $(".wb-surface").style.aspectRatio = `${d.width}/${d.height}`;
   $(".wb-paper").value = d.background;
-  const settings = state.settings || {};
+  const settings = {
+    tool: TOOLS.includes(props.tool) ? props.tool : "pen",
+    color: /^#[0-9a-fA-F]{6}$/.test(props.color) ? props.color : "#1d4ed8",
+    size: Number.isInteger(props.stroke_width) && props.stroke_width >= 1 && props.stroke_width <= 48
+      ? props.stroke_width : 4,
+    ...state.settings,
+  };
   for (const name of ["tool", "color", "size", "text"])
     if (settings[name] !== undefined) $(".wb-" + name).value = settings[name];
   if (settings.penOnly !== undefined)
@@ -475,7 +495,10 @@ export function mountWhiteboard(host, props = {}, state = {}) {
     $(".wb-status").textContent = message;
   };
   const clearInk = () => ink.clearRect(0, 0, d.width, d.height);
+  let renderedCommits = null;
   function renderCommits() {
+    if (renderedCommits === state.commits) return;
+    renderedCommits = state.commits;
     const commits = $(".wb-commits");
     commits.replaceChildren();
     if (!state.commits.length) return;
@@ -660,21 +683,14 @@ export function mountWhiteboard(host, props = {}, state = {}) {
   function cancel() {
     if (active !== null) finish({ pointerId: active }, true);
   }
-  function insertSnapshot() {
+  async function insertSnapshot() {
     if (props.insertable !== true) return;
-    const drawing = model.snapshot();
-    const revision = state.commits.length + 1;
-    state.commits.push({
-      revision,
-      drawing,
-      svg: drawingSvg(drawing),
-      alt: props.alt || `Whiteboard snapshot ${revision}`,
-      outputId: props.output_id || "",
-    });
-    // Keep an accidental repeated-click session bounded while preserving the
-    // editable drawing on the board itself.
-    if (state.commits.length > 12) state.commits.shift();
+    const { revision } = insertBoardSnapshot(state, props);
     refresh(`Snapshot ${revision} inserted below the board.`);
+    if (props.close_on_insert === true) {
+      if (document.fullscreenElement === root) await document.exitFullscreen();
+      if (!disposed) open(false);
+    }
   }
   function open(value) {
     cancel();
@@ -741,7 +757,7 @@ export function mountWhiteboard(host, props = {}, state = {}) {
         model[action]();
         refresh();
       } else if (action === "insert") {
-        insertSnapshot();
+        await insertSnapshot();
       } else if (action === "text")
         addText({ x: d.width / 2, y: d.height / 2, p: 0.5 });
       else if (action === "svg")

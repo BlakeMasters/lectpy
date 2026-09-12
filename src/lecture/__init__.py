@@ -19,9 +19,12 @@ from typing import Any
 
 from .context import require_current
 from .events import Event, SourceLocation
+from .options import PresentationStyle, WhiteboardOptions
 from .sanitize import markdown_to_html
 
 __all__ = [
+    "PresentationStyle",
+    "WhiteboardOptions",
     "text",
     "code",
     "table",
@@ -230,10 +233,15 @@ def clear() -> Event:
 def whiteboard(
     title: str = "Whiteboard",
     *,
-    width: int = 1200,
-    height: int = 675,
-    background: str = "grid",
-    insertable: bool = False,
+    options: WhiteboardOptions | None = None,
+    width: int | None = None,
+    height: int | None = None,
+    background: str | None = None,
+    insertable: bool | None = None,
+    tool: str | None = None,
+    color: str | None = None,
+    stroke_width: int | None = None,
+    close_on_insert: bool | None = None,
     output_id: str | None = None,
     alt: str = "",
 ) -> Event:
@@ -242,27 +250,29 @@ def whiteboard(
     Runs in both static and live viewers. Pair Bluetooth styluses in the OS;
     browser Pointer Events supply pressure when supported. Drawing state is local
     to the viewer and survives stepping, but must be saved before reloading.
+    Reuse ``WhiteboardOptions`` with ``options=...``; explicit keywords override
+    its defaults. ``close_on_insert=True`` closes the editor after a snapshot.
     """
     if not isinstance(title, str):
         raise TypeError("whiteboard title must be a string")
-    if type(width) is not int or not 320 <= width <= 3840:
-        raise ValueError("whiteboard width must be an integer from 320 to 3840")
-    if type(height) is not int or not 180 <= height <= 2160:
-        raise ValueError("whiteboard height must be an integer from 180 to 2160")
-    if background not in {"blank", "grid", "dots"}:
-        raise ValueError("whiteboard background must be blank, grid, or dots")
-    if type(insertable) is not bool:
-        raise TypeError("whiteboard insertable must be a bool")
-    if not isinstance(alt, str) or len(alt) > 1000:
-        raise ValueError("whiteboard alt must be a string of at most 1000 characters")
-    props: dict[str, Any] = {
-        "title": title,
+    if options is not None and not isinstance(options, WhiteboardOptions):
+        raise TypeError("whiteboard options must be WhiteboardOptions")
+    overrides = {
         "width": width,
         "height": height,
         "background": background,
+        "insertable": insertable,
+        "tool": tool,
+        "color": color,
+        "stroke_width": stroke_width,
+        "close_on_insert": close_on_insert,
     }
-    if insertable:
-        props["insertable"] = True
+    resolved = (options or WhiteboardOptions()).with_options(
+        **{k: v for k, v in overrides.items() if v is not None}
+    )
+    if not isinstance(alt, str) or len(alt) > 1000:
+        raise ValueError("whiteboard alt must be a string of at most 1000 characters")
+    props: dict[str, Any] = {"title": title, **resolved.to_props()}
     if (clean_id := _output_id(output_id)) is not None:
         props["output_id"] = clean_id
     if alt:
@@ -380,10 +390,15 @@ def component(
 def section(
     name: str,
     *,
-    tone: str = "neutral",
-    density: str = "comfortable",
-    width: str = "reading",
-    align: str = "start",
+    style: PresentationStyle | None = None,
+    tone: str | None = None,
+    density: str | None = None,
+    width: str | None = None,
+    align: str | None = None,
+    font: str | None = None,
+    text_size: str | None = None,
+    highlight: str | None = None,
+    focus: str | None = None,
 ):
     """Scope presentation hints for a coherent lecture section.
 
@@ -391,22 +406,27 @@ def section(
     output ordering, or older readers. Use them around related calls to give a
     presenter a hero opening, compact evidence block, code/derivation passage,
     or spacious recap while keeping one portable event log.
+    Keywords override ``style``. Without a style, nested sections inherit their
+    enclosing section; top-level sections use ``PresentationStyle()`` defaults.
     """
     if not isinstance(name, str) or not name.strip() or len(name) > 80:
         raise ValueError("section name must be a non-empty string of at most 80 characters")
-    choices = {
-        "tone": (tone, {"neutral", "hero", "evidence", "code", "recap"}),
-        "density": (density, {"compact", "comfortable", "roomy"}),
-        "width": (width, {"reading", "wide", "full"}),
-        "align": (align, {"start", "center"}),
-    }
-    for label, (value, allowed) in choices.items():
-        if value not in allowed:
-            raise ValueError(f"section {label} must be one of {sorted(allowed)}")
     ctx = require_current()
-    with ctx.presentation_scope(
-        {"name": name.strip(), "tone": tone, "density": density, "width": width, "align": align}
-    ):
+    if style is not None and not isinstance(style, PresentationStyle):
+        raise TypeError("section style must be PresentationStyle")
+    base = style or PresentationStyle(**ctx.presentation_options)
+    overrides = {
+        "tone": tone,
+        "density": density,
+        "width": width,
+        "align": align,
+        "font": font,
+        "text_size": text_size,
+        "highlight": highlight,
+        "focus": focus,
+    }
+    resolved = base.with_options(**{k: v for k, v in overrides.items() if v is not None})
+    with ctx.presentation_scope({"name": name.strip(), **resolved.to_dict()}):
         yield
 
 

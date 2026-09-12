@@ -100,6 +100,13 @@ class ExecutionContext:
         finally:
             self._presentation_stack.pop()
 
+    @property
+    def presentation_options(self) -> dict[str, str]:
+        """A copy of the active section's style, without its label."""
+        if not self._presentation_stack:
+            return {}
+        return {k: v for k, v in self._presentation_stack[-1].items() if k != "name"}
+
     # -- emit -----------------------------------------------------------------
     def emit(
         self,

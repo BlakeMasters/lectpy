@@ -40,6 +40,7 @@ class TexParser {
   constructor(source) {
     this.source = source;
     this.index = 0;
+    this.depth = 0;
     this.unsupported = [];
   }
 
@@ -156,9 +157,12 @@ class TexParser {
     if (name === "," || name === ";" || name === ":" || name === "!") {
       return name === "!" ? "<mspace width=\"-0.15em\"/>" : "<mspace width=\"0.2em\"/>";
     }
+    if (name === "quad" || name === "qquad") {
+      return `<mspace width="${name === "quad" ? 1 : 2}em"/>`;
+    }
     if (Object.prototype.hasOwnProperty.call(SYMBOLS, name)) {
       const value = SYMBOLS[name];
-      return FUNCTIONS.has(name) ? `<mo>${value}</mo>` : `<mo>${value}</mo>`;
+      return /^[\u0370-\u03ffℓ]$/.test(value) ? `<mi>${value}</mi>` : `<mo>${value}</mo>`;
     }
     if (FUNCTIONS.has(name)) return `<mo>${equationEscape(name)}</mo>`;
     this.unsupported.push(name);
@@ -166,13 +170,20 @@ class TexParser {
   }
 
   atom() {
+    if (++this.depth > 64) throw new Error("Equation nesting limit exceeded");
+    try {
+      return this.readAtom();
+    } finally {
+      this.depth -= 1;
+    }
+  }
+
+  readAtom() {
     this.skipSpace();
     const ch = this.source[this.index];
     if (!ch) return "";
     if (ch === "{") return this.group();
-    if (ch === "}") return "";
     if (ch === "\\") return this.command(this.readCommand());
-    if (ch === "^" || ch === "_") return "";
     this.index += 1;
     return atom(ch);
   }
@@ -208,7 +219,12 @@ class TexParser {
 export function texToMathML(source, { display = true, alt = "" } = {}) {
   const text = typeof source === "string" ? source.slice(0, 12000) : "";
   const parser = new TexParser(text);
-  const body = parser.expression("") || `<mtext>${equationEscape(text)}</mtext>`;
+  let body;
+  try {
+    body = parser.expression("") || `<mtext>${equationEscape(text)}</mtext>`;
+  } catch {
+    body = `<mtext>${equationEscape(text)}</mtext>`;
+  }
   const label = alt || text || "Equation";
   return `<math xmlns="http://www.w3.org/1998/Math/MathML"${display ? ' display="block"' : ""} aria-label="${equationEscape(label)}"><mrow>${body}</mrow></math>`;
 }

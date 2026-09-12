@@ -42,7 +42,9 @@ export interface BoardState {
   model?: BoardModel;
   open?: boolean;
   commits?: BoardCommit[];
+  settings?: { tool?: string; color?: string; size?: string | number; text?: string; penOnly?: boolean };
 }
+export function insertBoardSnapshot(state: BoardState & { model: BoardModel }, props?: Record<string, unknown>): BoardCommit;
 export const TOOLS: string[];
 export function pointerSample(
   event: Pick<PointerEvent, "clientX" | "clientY" | "pressure" | "pointerType">,

@@ -55,6 +55,12 @@ Reference windows render an accessible open/focus control, preserve a named wind
 accept bounded size/position options, and can be closed by a later recorded event.
 Popup-blocked browsers retain a normal fallback link.
 
+Reusable `PresentationStyle` and `WhiteboardOptions` objects keep configuration
+local to the content. Start with `TECHNICAL`, `PAPER`, or `SEMINAR`, then override
+fonts, output highlighting, spacing, and sizing per section. See
+[presentation options](docs/OPTIONS.md) and the six-scene
+[runnable example](examples/presentation_options.py).
+
 ## Design (summary)
 
 Python SDK → v1 event log + artifacts → static viewer or React shell.

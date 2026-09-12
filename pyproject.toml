@@ -35,7 +35,7 @@ lecture = "lecture.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-lecture = ["static/*.js"]
+lecture = ["static/*.js", "static/*.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

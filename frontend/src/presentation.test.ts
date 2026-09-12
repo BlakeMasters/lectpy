@@ -35,4 +35,20 @@ describe("section presentation metadata", () => {
     expect(result.density).toBe("comfortable");
     expect(result.name).toBe("<bad>");
   });
+
+  it("shares per-output font, sizing and focus options with static export", () => {
+    const result = sectionPresentation({payload: {presentation: {
+      font: "reading", text_size: "large", highlight: "violet", focus: "none",
+    }}});
+    expect(result.className).toContain("section-font-reading");
+    expect(result.className).toContain("section-text-size-large");
+    expect(result.className).toContain("section-highlight-violet");
+    expect(result.className).toContain("section-focus-none");
+    const fallback = sectionPresentation({payload: {presentation: {
+      font: [], highlight: "red background", focus: null,
+    }}});
+    expect(fallback.font).toBe("viewer");
+    expect(fallback.highlight).toBe("viewer");
+    expect(fallback.focus).toBe("wash");
+  });
 });

@@ -60,6 +60,10 @@ def test_section_scopes_projection_metadata_without_changing_event_kind():
         "density": "compact",
         "width": "wide",
         "align": "start",
+        "font": "viewer",
+        "text_size": "normal",
+        "highlight": "viewer",
+        "focus": "wash",
     }
     assert "presentation" not in events[2].payload
 

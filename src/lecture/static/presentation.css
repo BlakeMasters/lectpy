@@ -1,0 +1,56 @@
+/* One set of section rules for React and offline export. No card containers. */
+.lecture-output {
+  --section-accent: color-mix(in srgb, CanvasText 58%, Canvas);
+  margin: 0;
+  padding: .85rem 0;
+  border-top: 1px solid color-mix(in srgb, CanvasText 12%, Canvas);
+  scroll-margin-block: 2rem;
+  font-family: var(--lectpy-body-font);
+  line-height: var(--lectpy-line-height);
+}
+.lecture-output:first-child { border-top: 0; }
+.section-tone-hero { --section-accent: #2563eb; }
+.section-tone-evidence { --section-accent: #0f766e; }
+.section-tone-code { --section-accent: #7c3aed; }
+.section-tone-recap { --section-accent: #b45309; }
+.section-marker {
+  margin: 0 0 .7rem;
+  padding: .18rem 0;
+  border-bottom: 2px solid color-mix(in srgb, var(--section-accent) 52%, Canvas);
+  color: var(--section-accent);
+  font: 700 .68em var(--lectpy-code-font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.section-density-compact { padding-block: .35rem; }
+.section-density-roomy { padding-block: 1.55rem; }
+.section-width-reading { max-inline-size: 72ch; }
+.section-width-wide { max-inline-size: 96ch; }
+.section-width-full { max-inline-size: none; }
+.section-align-center { text-align: center; }
+.section-align-center .lecture-media img,
+.section-align-center .lecture-media video { margin-inline: auto; }
+.section-font-system { --lectpy-body-font: system-ui, -apple-system, 'Segoe UI', sans-serif; --lectpy-line-height: 1.55; }
+.section-font-technical { --lectpy-body-font: 'Segoe UI', system-ui, sans-serif; --lectpy-code-font: 'Cascadia Code', Consolas, monospace; --lectpy-line-height: 1.45; }
+.section-font-reading { --lectpy-body-font: Georgia, 'Times New Roman', serif; --lectpy-line-height: 1.7; }
+.section-text-size-large { font-size: 1.2em; }
+.section-highlight-amber { --trace-highlight: #d97706; }
+.section-highlight-blue { --trace-highlight: #2563eb; }
+.section-highlight-mint { --trace-highlight: #0f766e; }
+.section-highlight-violet { --trace-highlight: #7c3aed; }
+/* MathML ink can extend a few pixels beyond its line box (e.g. superscripts). */
+.lecture-equation-math { padding-block: .25em; }
+.lecture-output-current:not(.section-focus-none) {
+  border-inline-start: 3px solid var(--trace-highlight, #d97706);
+  padding-inline-start: .8rem;
+}
+.lecture-output-current.section-focus-wash {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--trace-highlight, #d97706) 7%, Canvas), transparent 85%);
+}
+/* Prior output stays fully legible. Reader view never marks an active step. */
+:is(.view-reader, body[data-view=reader]) .lecture-output { border-top: 0; }
+:is(.view-reader, body[data-view=reader]) .lecture-output-current {
+  border-inline-start: 0;
+  padding-inline-start: 0;
+  background: none;
+}

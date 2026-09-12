@@ -4,6 +4,7 @@ import {
   BoardModel,
   drawingSvg,
   hitTest,
+  insertBoardSnapshot,
   pointerSample,
   pointerTool,
   validateDrawing,
@@ -21,6 +22,18 @@ const item = (id: string, tool = "pen"): DrawingItem => ({
   ],
 });
 describe("whiteboard model", () => {
+  it("keeps independent snapshots and monotonic revisions after eviction", () => {
+    const state = {model: new BoardModel(), commits: [] as import("../../src/lecture/static/whiteboard.js").BoardCommit[]};
+    state.model.add(item("original"));
+    const first = insertBoardSnapshot(state, {alt: "Working", output_id: "derivation"});
+    state.model.clear();
+    for (let i = 0; i < 15; i++) insertBoardSnapshot(state);
+    expect(first.drawing.items).toHaveLength(1);
+    expect(first.alt).toBe("Working");
+    expect(state.commits).toHaveLength(12);
+    expect(state.commits.map(c => c.revision)).toEqual(Array.from({length: 12}, (_, i) => i + 5));
+    expect(state.commits.at(-1)?.drawing.items).toHaveLength(0);
+  });
   it("keeps committed geometry stable and bounds undo history", () => {
     const model = new BoardModel();
     model.add(item("first"));
