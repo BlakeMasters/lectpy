@@ -17,6 +17,45 @@ def test_validate_ok():
     assert validate_event(d) == []
 
 
+def test_payloads_and_serialized_snapshots_do_not_alias_author_data():
+    log = EventLog("s", "e")
+    data = {"values": [1]}
+    log.append("plot", {"spec": data})
+    data["values"].append(2)
+    assert log.to_list()[0]["payload"]["spec"]["values"] == [1]
+    snapshot = log.to_list()
+    loaded = EventLog.from_list("s", "e", snapshot)
+    snapshot[0]["payload"]["spec"]["values"].append(3)
+    assert log.to_list()[0]["payload"]["spec"]["values"] == [1]
+    assert loaded.to_list()[0]["payload"]["spec"]["values"] == [1]
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"kind": []},
+        {"seq": True},
+        {"source_location": {"file": "source.py", "line": "oops"}},
+        {"session_id": None},
+        {"schema_version": True},
+        {"wall_time": "yesterday"},
+        {"parent_event": True},
+        {"artifact_refs": ["sha256:invalid"]},
+    ],
+)
+def test_invalid_event_shapes_return_errors_not_exceptions(override):
+    assert validate_event(
+        {"session_id": "s", "execution_id": "e", "seq": 0, "kind": "text", **override}
+    )
+
+
+def test_loading_log_rejects_mixed_execution_identity():
+    log = EventLog("s", "e")
+    log.append("text", {})
+    with pytest.raises(ValueError, match="identity"):
+        EventLog.from_list("other-session", "other-execution", log.to_list())
+
+
 def test_validate_rejects_unknown_kind_and_bad_seq():
     assert validate_event({"session_id": "s", "execution_id": "e", "seq": -1, "kind": "nope"}) != []
     assert validate_event({"session_id": "s"}) != []

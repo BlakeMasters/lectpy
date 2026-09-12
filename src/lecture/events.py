@@ -7,8 +7,11 @@ CRDTs (Yjs/Automerge) are reserved for collaboratively edited *source* (v0.5+).
 
 from __future__ import annotations
 
+import math
+import re
 import time
 import uuid
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -75,7 +78,7 @@ class Event:
             "seq": self.seq,
             "wall_time": self.wall_time,
             "kind": self.kind,
-            "payload": self.payload,
+            "payload": deepcopy(self.payload),
             "artifact_refs": list(self.artifact_refs),
             "schema_version": self.schema_version,
         }
@@ -93,7 +96,7 @@ class Event:
             execution_id=str(d["execution_id"]),
             seq=int(d["seq"]),
             kind=str(d["kind"]),
-            payload=dict(d.get("payload", {})),
+            payload=deepcopy(d.get("payload", {})),
             wall_time=float(d.get("wall_time", 0.0)),
             source_location=SourceLocation.from_dict(loc) if loc else None,
             artifact_refs=list(d.get("artifact_refs", [])),
@@ -104,26 +107,46 @@ class Event:
 
 def validate_event(d: dict[str, Any]) -> list[str]:
     """Return a list of validation errors (empty == valid)."""
+    if not isinstance(d, dict):
+        return ["event must be an object"]
     errors: list[str] = []
     for key in ("session_id", "execution_id", "seq", "kind"):
         if key not in d:
             errors.append(f"missing required field: {key}")
-    if "kind" in d and d["kind"] not in EVENT_KINDS:
+    for key in ("session_id", "execution_id"):
+        if key in d and (not isinstance(d[key], str) or not d[key]):
+            errors.append(f"{key} must be a non-empty string")
+    if "kind" in d and (not isinstance(d["kind"], str) or d["kind"] not in EVENT_KINDS):
         errors.append(f"unknown kind: {d.get('kind')!r}")
-    if "seq" in d and (not isinstance(d["seq"], int) or d["seq"] < 0):
+    if "seq" in d and (type(d["seq"]) is not int or d["seq"] < 0):
         errors.append("seq must be a non-negative int")
-    if d.get("schema_version", SCHEMA_VERSION) != SCHEMA_VERSION:
+    version = d.get("schema_version", SCHEMA_VERSION)
+    if type(version) is not int or version != SCHEMA_VERSION:
         errors.append(f"unsupported schema_version: {d.get('schema_version')!r}")
+    if "wall_time" in d and (
+        type(d["wall_time"]) not in (int, float)
+        or (type(d["wall_time"]) is float and not math.isfinite(d["wall_time"]))
+    ):
+        errors.append("wall_time must be a finite number")
+    if "parent_event" in d and (type(d["parent_event"]) is not int or d["parent_event"] < 0):
+        errors.append("parent_event must be a non-negative integer")
     loc = d.get("source_location")
     if loc is not None:
         if not isinstance(loc, dict) or "file" not in loc or "line" not in loc:
             errors.append("source_location must be {file, line, [func]}")
+        elif (
+            not isinstance(loc["file"], str)
+            or type(loc["line"]) is not int
+            or loc["line"] < 1
+            or not isinstance(loc.get("func", "main"), str)
+        ):
+            errors.append("source_location requires a string file/func and positive integer line")
     refs = d.get("artifact_refs", [])
     if not isinstance(refs, list) or not all(isinstance(r, str) for r in refs):
         errors.append("artifact_refs must be a list of strings")
     for r in refs if isinstance(refs, list) else []:
-        if isinstance(r, str) and not r.startswith("sha256:"):
-            errors.append(f"artifact ref must start with 'sha256:': {r!r}")
+        if isinstance(r, str) and not re.fullmatch(r"sha256:[0-9a-f]{64}", r):
+            errors.append(f"artifact ref must contain 'sha256:' and a 64-digit hex digest: {r!r}")
     payload = d.get("payload", {})
     if not isinstance(payload, dict):
         errors.append("payload must be an object")
@@ -151,14 +174,14 @@ class EventLog:
         artifact_refs: list[str] | None = None,
         parent_event: int | None = None,
     ) -> Event:
-        if kind not in EVENT_KINDS:
+        if not isinstance(kind, str) or kind not in EVENT_KINDS:
             raise ValueError(f"unknown event kind: {kind!r}")
         ev = Event(
             session_id=self.session_id,
             execution_id=self.execution_id,
             seq=self._next_seq,
             kind=kind,
-            payload=dict(payload or {}),
+            payload=deepcopy(payload if payload is not None else {}),
             source_location=source_location,
             artifact_refs=list(artifact_refs or []),
             parent_event=parent_event,
@@ -185,6 +208,8 @@ class EventLog:
             if errors:
                 raise ValueError(f"invalid stored event: {errors}")
             ev = Event.from_dict(item)
+            if ev.session_id != session_id or ev.execution_id != execution_id:
+                raise ValueError("stored event identity does not match this session/execution")
             # Enforce monotonic seq on load so corrupted/tampered logs fail fast.
             if ev.seq != log._next_seq:
                 raise ValueError(f"non-monotonic seq: expected {log._next_seq}, got {ev.seq}")

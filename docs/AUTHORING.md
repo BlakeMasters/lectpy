@@ -34,8 +34,21 @@ def main():
     x = 1  # @inspect x
     y = 2  # @hide
     # @clear
+    text("Start the next scene")
     # @step-over
+    helper()
 ```
+
+Directives must be actual Python comments; marker-like text inside strings is
+literal output. A standalone directive applies to the following source statement,
+and `@clear` fires each time execution reaches that statement. Use `clear()`
+directly when clearing inside a hidden helper, where line directives do not run.
+
+An inline `@inspect` observes the value after its line executes, including
+reassignments. It stays in that function's frame; a same-named variable in a
+callee or caller cannot satisfy it. The decorator watches values before each
+visible line. `@hide` and `@step_over` decorators collapse a helper and its
+descendants, but their explicitly emitted outputs are still recorded.
 
 Project settings live in `lecture.toml`:
 
@@ -68,6 +81,9 @@ file I/O inside the author script is ordinary Python; anchor data paths with
 `Path(__file__).parent` when the project may be launched from another directory.
 The Python provider does not install a tracer or impose a wall-clock interrupt
 on `main()`; trace wall-time checks occur at traced lines.
+Both providers require a synchronous entry point: async and generator `main()`
+functions produce a recorded error rather than an apparently successful empty
+lecture. Async Playwright action functions are separate from this entry point.
 
 Configuration is discovered by walking upward from the explicit source file, or
 from the current directory when no source is supplied. `--config path/to/lecture.toml`

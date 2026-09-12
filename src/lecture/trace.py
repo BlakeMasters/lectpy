@@ -8,9 +8,12 @@ monolithic JSON trace with eager serialization and a global accumulator.
 from __future__ import annotations
 
 import importlib.util
+import inspect
+import io
 import linecache
 import sys
 import time
+import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import FrameType
@@ -18,6 +21,7 @@ from typing import Any
 
 from .artifacts import ArtifactStore
 from .context import ExecutionContext, execution_scope
+from .events import SourceLocation
 from .policy import GrantedPolicy, default_policy
 
 MAX_LOCALS_PER_STEP = 50
@@ -39,7 +43,33 @@ class TraceStep:
 def _parse_comment_directives(source_lines: dict[int, str]) -> dict[int, dict[str, Any]]:
     """Parse `# @inspect x,y` / `# @hide` / `# @step-over` / `# @clear` comments."""
     out: dict[int, dict[str, Any]] = {}
-    for lineno, text in source_lines.items():
+    source = "\n".join(source_lines.values()) + "\n"
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except (tokenize.TokenError, IndentationError):
+        return out  # The import/compile path reports the syntax error.
+    trivia = {
+        tokenize.NL,
+        tokenize.NEWLINE,
+        tokenize.INDENT,
+        tokenize.DEDENT,
+        tokenize.COMMENT,
+        tokenize.ENDMARKER,
+    }
+    next_line = None
+    following = {}
+    for token in reversed(tokens):
+        following[token.start] = next_line
+        if token.type not in trivia:
+            next_line = token.start[0]
+    for token in tokens:
+        if token.type != tokenize.COMMENT:
+            continue
+        lineno, text = token.start[0], token.string
+        if not source_lines[lineno][: token.start[1]].strip():
+            lineno = following[token.start]
+            if lineno is None:
+                continue
         low = text.lower()
         if "# @inspect" in low or "# inspect:" in low or "# lectpy: inspect" in low:
             # everything after the marker is a comma/space separated name list
@@ -94,16 +124,22 @@ class TraceExecutor:
         spec = importlib.util.spec_from_file_location(module_name, str(path))
         if spec is None or spec.loader is None:
             ctx.emit("error", {"message": f"cannot load module: {path}"})
+            ctx.emit("session_end", {"status": "import-error"})
             return ctx
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
         try:
-            spec.loader.exec_module(module)  # type: ignore[union-attr]
+            # Execute the source we just read, not a timestamp/size-matched .pyc
+            # left by a rapid edit of the same file.
+            exec(compile(source, str(path), "exec"), module.__dict__)
         except Exception as e:
             ctx.emit("error", {"message": f"import failed: {e!r}"})
             ctx.emit("session_end", {"status": "import-error"})
             sys.modules.pop(module_name, None)
             return ctx
+        except BaseException:
+            sys.modules.pop(module_name, None)
+            raise
 
         main = getattr(module, "main", None)
         if not callable(main):
@@ -111,27 +147,31 @@ class TraceExecutor:
             ctx.emit("session_end", {"status": "no-main"})
             sys.modules.pop(module_name, None)
             return ctx
+        entry = inspect.unwrap(main)
+        if any(
+            check(entry)
+            for check in (
+                inspect.iscoroutinefunction,
+                inspect.isgeneratorfunction,
+                inspect.isasyncgenfunction,
+            )
+        ):
+            ctx.emit(
+                "error", {"message": "lecture main() must be synchronous, not async or a generator"}
+            )
+            ctx.emit("session_end", {"status": "invalid-main"})
+            sys.modules.pop(module_name, None)
+            return ctx
 
         # Normalize for Windows case/sep comparisons
         target_norm = str(path).lower().replace("/", "\\")
 
         step_over_lines: set[int] = {ln for ln, d in directives.items() if d.get("step_over")}
-        # Standalone `# @clear` comment lines never produce a `line` event
-        # (no bytecode). Fire each once when execution next reaches a line at
-        # or past it — attached to the following pedagogical step.
-        clear_only_lines: list[int] = sorted(
-            ln
-            for ln, d in directives.items()
-            if d.get("clear") and source_lines.get(ln, "").strip().startswith("#")
-        )
         state = {
-            "depth": 0,
-            "no_descend_frames": set(),  # id(frame) that should not emit steps
-            "step_over_callers": set(),  # id(frame) whose calls collapse one level
+            "no_descend_frames": set(),  # actual frames: IDs can be reused by Python
             "nsteps": 0,
-            "start": time.time(),
-            "pending_clears": set(clear_only_lines),
-            "pending_inspects": [],  # names deferred past their assignment line
+            "start": time.monotonic(),
+            "pending_inspects": {},  # frame -> names deferred past their assignment line
         }
 
         def _norm(frame_file: str) -> str:
@@ -157,58 +197,54 @@ class TraceExecutor:
                 caller = caller.f_back
             return None
 
+        def inspect_local(frame: FrameType, name: str) -> None:
+            ctx.inspect(
+                name,
+                frame.f_locals[name],
+                source_location=SourceLocation(str(path), frame.f_lineno, frame.f_code.co_name),
+            )
+
         def tracer(frame: FrameType, event: str, arg: Any) -> Any:
             # Only pedagogically-visible source; never trace stdlib/site-packages.
             filename = frame.f_code.co_filename
             if not _should_trace_file(filename):
                 return None
             func = frame.f_code.co_name
-            # Decorator-driven hiding / step-over
-            if func != "<module>":
-                # look up possibly-decorated function object for markers
-                target = frame.f_globals.get(func) or getattr(module, func, None)
-                if getattr(target, "__lecture_hide__", False):
-                    return None
-                if event == "call" and getattr(target, "__lecture_step_over__", False):
-                    # Collapse the whole call: the call-site line in the
-                    # caller is the single pedagogical step; never descend.
-                    state["no_descend_frames"].add(id(frame))
-                    return None
-            if id(frame) in state["no_descend_frames"]:
-                return None
-
             if event == "call":
-                state["depth"] += 1
-                # If caller line requested step-over, don't descend into this call.
+                target = frame.f_globals.get(func)
+                collapsed = getattr(target, "__lecture_hide__", False) or getattr(
+                    target, "__lecture_step_over__", False
+                )
+                # Walk through wrappers/non-author frames as well: descendants
+                # of a collapsed helper must stay collapsed until it returns.
                 caller = frame.f_back
-                if caller is not None and id(caller) in state["step_over_callers"]:
-                    state["no_descend_frames"].add(id(frame))
-                    return None
-                # comment-driven step-over: check caller line
-                try:
-                    if caller is not None and caller.f_lineno in step_over_lines:
-                        state["no_descend_frames"].add(id(frame))
-                        return None
-                except Exception:
-                    pass
+                while caller is not None:
+                    if caller in state["no_descend_frames"] or (
+                        _should_trace_file(caller.f_code.co_filename)
+                        and caller.f_lineno in step_over_lines
+                    ):
+                        collapsed = True
+                        break
+                    caller = caller.f_back
+                if collapsed:
+                    state["no_descend_frames"].add(frame)
+                    frame.f_trace_lines = False
+                return tracer
+            if frame in state["no_descend_frames"]:
+                if event == "return":
+                    state["no_descend_frames"].discard(frame)
                 return tracer
             if event == "return":
-                state["depth"] = max(0, state["depth"] - 1)
-                state["step_over_callers"].discard(id(frame))
-                state["no_descend_frames"].discard(id(frame))
                 # Last chance for deferred inspects (e.g. assignment on the
                 # final line has no *next* line event; `return` sees post-state).
-                if state["pending_inspects"]:
-                    still_pending = []
-                    for name in state["pending_inspects"]:
+                pending = state["pending_inspects"].pop(frame, [])
+                if pending:
+                    for name in pending:
                         if name in frame.f_locals:
                             try:
-                                ctx.inspect(name, frame.f_locals[name], line=frame.f_lineno)
+                                inspect_local(frame, name)
                             except Exception:
                                 pass
-                        else:
-                            still_pending.append(name)
-                    state["pending_inspects"] = still_pending
                 return tracer
             if event != "line":
                 return tracer
@@ -219,30 +255,26 @@ class TraceExecutor:
             # `line` event *before* the assignment executes, so `x` is only
             # visible on the *next* line event. Same for decorator-requested
             # names on their definition line.
-            if state["pending_inspects"]:
+            pending = state["pending_inspects"].pop(frame, [])
+            if pending:
                 still_pending = []
-                for name in state["pending_inspects"]:
+                for name in pending:
                     if name in frame.f_locals:
                         try:
-                            ctx.inspect(name, frame.f_locals[name], line=lineno)
+                            inspect_local(frame, name)
                         except Exception:
                             pass
                     else:
                         still_pending.append(name)
-                state["pending_inspects"] = still_pending
-            # Fire standalone `# @clear` lines reached since the last step.
-            for clr in sorted(state["pending_clears"]):
-                if clr <= lineno:
-                    ctx.emit("clear", {}, line=clr, func=func)
-                    state["pending_clears"].discard(clr)
-            if d.get("clear") and lineno not in clear_only_lines:
-                # Same-line `code  # @clear`: comment-only lines handled above.
+                if still_pending:
+                    state["pending_inspects"][frame] = still_pending
+            if d.get("clear"):
                 ctx.emit("clear", {}, line=lineno, func=func)
             if d.get("hide"):
                 return tracer  # execute but don't record a pedagogical step
             if state["nsteps"] >= self.max_steps:
                 raise RuntimeError(f"step budget exceeded ({self.max_steps})")
-            if time.time() - state["start"] > self.policy.max_wall_seconds:
+            if time.monotonic() - state["start"] > self.policy.max_wall_seconds:
                 raise TimeoutError("trace wall-time budget exceeded")
 
             # Capture locals summary (truncated; large values get handles on inspect only)
@@ -276,38 +308,35 @@ class TraceExecutor:
                 step_payload["ref"] = reference
 
             seq_before = len(ctx.log)
-            ctx.emit(
+            step_event = ctx.emit(
                 "step",
                 step_payload,
                 line=lineno,
                 func=func,
             )
             # comment-driven @inspect names → extra inspect events (lazy handles).
-            # Names not yet bound (same-line assignment) defer to the next step.
+            # Always observe post-line state, including reassignment of an
+            # existing name. Only this frame can satisfy a deferred inspection.
+            pending = state["pending_inspects"].setdefault(frame, [])
             for name in d.get("inspect", []):
-                if name in frame.f_locals:
-                    try:
-                        ctx.inspect(name, frame.f_locals[name], line=lineno)
-                    except Exception:
-                        pass
-                elif name not in state["pending_inspects"]:
-                    state["pending_inspects"].append(name)
+                if name not in pending:
+                    pending.append(name)
             # decorator-driven @inspect names
             try:
                 target = frame.f_globals.get(func) or getattr(module, func, None)
                 for name in getattr(target, "__lecture_inspect__", ()) or []:
                     if name in frame.f_locals and name not in d.get("inspect", []):
                         try:
-                            ctx.inspect(name, frame.f_locals[name], line=lineno)
+                            inspect_local(frame, name)
                         except Exception:
                             pass
-                    elif name not in frame.f_locals and name not in state["pending_inspects"]:
-                        state["pending_inspects"].append(name)
+                    elif name not in frame.f_locals and name not in pending:
+                        pending.append(name)
             except Exception:
                 pass
             self.steps.append(
                 TraceStep(
-                    seq=len(ctx.log) - 1,
+                    seq=step_event.seq,
                     file=filename,
                     line=lineno,
                     func=func,
@@ -326,7 +355,18 @@ class TraceExecutor:
         try:
             with execution_scope(ctx):
                 try:
-                    main()
+                    result = main()
+                    if (
+                        inspect.isawaitable(result)
+                        or inspect.isgenerator(result)
+                        or inspect.isasyncgen(result)
+                    ):
+                        if inspect.iscoroutine(result) or inspect.isgenerator(result):
+                            result.close()
+                        raise TypeError(
+                            "lecture main() must return synchronously, "
+                            "not an awaitable or generator"
+                        )
                 except Exception as e:
                     import traceback
 
@@ -339,6 +379,8 @@ class TraceExecutor:
         finally:
             if self.record_steps:
                 sys.settrace(old_trace)
+            state["pending_inspects"].clear()
+            state["no_descend_frames"].clear()
             linecache.clearcache()
             sys.modules.pop(module_name, None)
         return ctx
