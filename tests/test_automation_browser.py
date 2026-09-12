@@ -47,7 +47,7 @@ def test_popup_board_rendered_code_stop_capture_and_rewind(tmp_path):
 
     def run(id, action, step=0):
         service.submit(id, action, uuid4().hex, step)
-        target = "lecture" if service.specs[id]["target"] == "lecture" else id
+        target = service._target(service.specs[id])
         service.active[target].result(timeout=35)
         state = service.snapshot()["controls"][id]
         if state["state"] != "succeeded" and service.presenter:

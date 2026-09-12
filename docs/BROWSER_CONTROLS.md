@@ -108,6 +108,8 @@ not an exact desktop-window rectangle. The managed lecture uses 1200 × 850.
   direction. A target shared with the next scope is kept open. The managed lecture
   itself can only be closed explicitly. Browser-history navigation and view
   switches do not issue automation commands.
+  Rapid step changes queue lifecycle commands in navigation order, so a delayed
+  open cannot overtake the close from leaving that section.
 - An action on `target="lecture"` first synchronizes the managed lecture to the
   requesting tab's selected step without reloading. Popup actions do not advance
   the lecture. Manual actions are not an undoable part of the trace.
@@ -116,8 +118,12 @@ not an exact desktop-window rectangle. The managed lecture uses 1200 × 850.
   yield regularly. Blocking Python or a CPU loop cannot be forcibly interrupted by
   this thread-based first version; a process-isolated worker is not implemented.
   A lifecycle close cancels a running action before closing its window.
+  Controls sharing the managed lecture also share its busy state and Stop action;
+  independently named popups can run concurrently. Close remains available while
+  an action is running.
 - Commands are not retried automatically after a lost response. The runner also
-  deduplicates the most recent 256 request IDs.
+  deduplicates the most recent 256 request IDs. After a lost response the viewer
+  checks the runner's state, keeping Stop available if the action is still running.
 
 The runner loads the source module you explicitly name, verifies its hash against
 the bundle, and accepts only declared action IDs. Loading still executes normal
@@ -166,7 +172,7 @@ after installing Chromium:
 
 ```powershell
 $env:LECTPY_BROWSER_TESTS = "1"
-python -m pytest tests/test_automation_browser.py
+python -m pytest tests/test_automation_browser.py tests/test_viewer_edges.py
 ```
 
 Set `LECTPY_BROWSER_ARTIFACTS` to a local directory to retain QA screenshots.

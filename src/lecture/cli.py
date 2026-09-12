@@ -32,7 +32,7 @@ def _execution_settings(
 def cmd_check(args: argparse.Namespace) -> int:
     config, src, policy, provider = _execution_settings(args)
     try:
-        compile(src.read_text(encoding="utf-8"), str(src), "exec")
+        compile(src.read_bytes(), str(src), "exec")
     except SyntaxError as exc:
         raise ConfigError(f"{src}:{exc.lineno}: {exc.msg}") from exc
     print(f"checked {src} (provider={provider}, policy={policy.profile})")

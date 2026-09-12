@@ -13,6 +13,7 @@ only, relative artifact links, recorded fallback for interactive components.
 from __future__ import annotations
 
 import html
+import importlib.util
 import json
 from pathlib import Path
 from typing import Any
@@ -248,14 +249,15 @@ function render(){
     var status=card.querySelector('.browser-window-status');
     function setStatus(message){if(status)status.textContent=message}
     if(action==='close'){
-      setStatus(browserController.get(id)?browserController.close(id).message:'Reference window is closed.');
+      setStatus('Close request recorded; applied by step navigation.');
       return;
     }
     var spec={window_id:id,url:card.getAttribute('data-browser-url')||'',title:card.getAttribute('data-browser-title')||'Reference',width:Number(card.getAttribute('data-browser-width')),height:Number(card.getAttribute('data-browser-height')),left:card.getAttribute('data-browser-left')===''?undefined:Number(card.getAttribute('data-browser-left')),top:card.getAttribute('data-browser-top')===''?undefined:Number(card.getAttribute('data-browser-top')),resizable:card.getAttribute('data-browser-resizable')!=='false',focus:card.getAttribute('data-browser-focus')!=='false'};
     var open=card.querySelector('[data-browser-open]'),close=card.querySelector('[data-browser-close]');
-    if(open)open.addEventListener('click',function(){setStatus(browserController.open(spec).message)});
-    if(close)close.addEventListener('click',function(){setStatus(browserController.close(id).message)});
+    if(open)open.addEventListener('click',function(){setStatus(browserController.open(spec).message);refreshReferenceControls()});
+    if(close)close.addEventListener('click',function(){setStatus(browserController.close(id).message);refreshReferenceControls()});
   })}
+  refreshReferenceControls();
   pos.textContent=steps.length?(idx+1)+" / "+steps.length:"Document";
   document.getElementById("prev").disabled=idx<=0;
   document.getElementById("next").disabled=idx>=steps.length-1;
@@ -263,6 +265,16 @@ function render(){
   try{var u=new URL(location.href);u.searchParams.set("step",String(idx));history.replaceState(null,"",u)}catch(e){}
   meta.textContent=steps.length?"Step "+(idx+1)+" of "+steps.length:"Recorded document";
  }
+function refreshReferenceControls(){
+  if(!browserController)return;
+  stage.querySelectorAll('[data-browser-action="open"]').forEach(function(card){
+    var opened=!!browserController.get(card.getAttribute('data-browser-id'));
+    var open=card.querySelector('[data-browser-open]'),close=card.querySelector('[data-browser-close]');
+    if(open)open.textContent=opened?'Focus reference window':'Open reference window';
+    if(close)close.disabled=!opened;
+  });
+}
+window.addEventListener('focus',refreshReferenceControls);
 function outputEventsAt(stepIndex){
   var step=steps[stepIndex],end=(view==="reader"||!step||stepIndex>=steps.length-1)?Infinity:step.seq,clear=-1,i;
   for(i=0;i<events.length;i++){if(events[i].kind==="clear"&&events[i].seq<=end&&events[i].seq>clear)clear=events[i].seq}
@@ -409,8 +421,8 @@ def _bundle_source(manifest: LectureManifest) -> dict[str, Any] | None:
     if not manifest.source_file:
         return None
     try:
-        text = Path(manifest.source_file).read_text(encoding="utf-8")
-    except OSError:
+        text = importlib.util.decode_source(Path(manifest.source_file).read_bytes())
+    except (OSError, UnicodeError, SyntaxError):
         return None
     if len(text.encode("utf-8")) > 2_000_000:  # never bloat the bundle
         return None

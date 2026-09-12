@@ -22,6 +22,15 @@ const item = (id: string, tool = "pen"): DrawingItem => ({
   ],
 });
 describe("whiteboard model", () => {
+  it("does not share SVG pattern IDs between inserted snapshots", () => {
+    const grid = drawingSvg(new BoardModel().snapshot());
+    const dots = drawingSvg({...new BoardModel().snapshot(), background:"dots"});
+    const gridId = grid.match(/<pattern id="([^"]+)"/)?.[1];
+    const dotsId = dots.match(/<pattern id="([^"]+)"/)?.[1];
+    expect(gridId).toBeTruthy();
+    expect(dotsId).not.toBe(gridId);
+    expect(dots).toContain(`url(#${dotsId})`);
+  });
   it("keeps independent snapshots and monotonic revisions after eviction", () => {
     const state = {model: new BoardModel(), commits: [] as import("../../src/lecture/static/whiteboard.js").BoardCommit[]};
     state.model.add(item("original"));

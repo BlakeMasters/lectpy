@@ -31,16 +31,6 @@ export default function BrowserWindow({ event }: { event: LectureEvent }) {
       : "Ready to open from this control."),
   );
 
-  useEffect(() => {
-    if (action !== "close") return;
-    const result = referenceWindowController.get(spec.id)
-      ? referenceWindowController.close(spec.id)
-      : { ok: true, message: "Reference window is closed." };
-    rememberBrowserWindowMessage(spec.id, result.message);
-    setMessage(result.message);
-    notifyBrowserWindowChange();
-  }, [action, spec.id]);
-
   const opened = Boolean(referenceWindowController.get(spec.id));
   function open() {
     const result = referenceWindowController.open(props);

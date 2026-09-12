@@ -32,6 +32,7 @@ export class AutomationClient {
     this.token = "";
     this.timer = null;
     this.pending = null;
+    this.navigationQueue = Promise.resolve();
   }
   notify() { for (const listener of this.listeners) listener(); }
   async refresh() {
@@ -53,7 +54,7 @@ export class AutomationClient {
         this.pending = null;
         this.notify();
         clearTimeout(this.timer);
-        if (this.listeners.size && this.available && Object.values(this.states).some(s => s.state === "running"))
+        if (this.listeners.size && this.available && Object.values(this.states).some(s => s.busy || s.state === "running"))
           this.timer = setTimeout(() => this.refresh(), 400);
       }
     })();
@@ -73,7 +74,7 @@ export class AutomationClient {
     if (!this.available) return;
     const requestId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     try {
-      this.states[spec.id] = {...this.states[spec.id], state: "running", message: "Sending…"};
+      this.states[spec.id] = {...this.states[spec.id], state: "running", busy: true, message: "Sending…"};
       this.notify();
       const response = await this.request(this.endpoint, {
         method: "POST", signal: AbortSignal.timeout(5000),
@@ -86,19 +87,31 @@ export class AutomationClient {
       await this.refresh();
     } catch (error) {
       // Never automatically retry a command whose execution may already have started.
-      this.states[spec.id] = {...this.states[spec.id], state: "error", message: error.message};
+      if (this.pending) await this.pending;
+      await this.refresh();
+      const state = this.states[spec.id] || {};
+      this.states[spec.id] = {...state,
+        state: this.available && state.state !== "idle" ? state.state : "error",
+        message: `${error.message}. ${this.available ? state.message || "" : "Reconnect to check the runner before retrying."}`,
+      };
       this.notify();
     }
   }
   navigate(before, after, from, to) {
-    if (from === to) return;
-    for (const command of navigationCommands(before, after, to > from)) {
+    if (from === to) return this.navigationQueue;
+    const commands = navigationCommands(before, after, to > from).filter(command => {
       if (command.action === "$open") {
-        if (this.seen.has(command.spec.binding_id)) continue;
+        if (this.seen.has(command.spec.binding_id)) return false;
         this.seen.add(command.spec.binding_id);
       }
-      this.run(command.spec, command.action, to);
-    }
+      return true;
+    });
+    // In particular, a slow initial connection/open must not arrive after its
+    // section's close command when the presenter advances quickly.
+    this.navigationQueue = this.navigationQueue.then(async () => {
+      for (const command of commands) await this.run(command.spec, command.action, to);
+    }).catch(() => {});
+    return this.navigationQueue;
   }
 }
 
@@ -162,10 +175,13 @@ export function mountAutomation(host, spec, client) {
   let captureKey = "";
   const unsubscribe = client.subscribe(() => {
     const state = client.states[spec.id] || {};
-    status.textContent = client.available ? state.message || "Ready" : client.message;
+    const busy = state.busy ?? state.state === "running";
+    status.textContent = client.available
+      ? busy && state.state !== "running" ? "Target is busy with another control; Stop cancels its action." : state.message || "Ready"
+      : client.message;
     reconnect.hidden = client.available;
     for (const [button, action] of buttons)
-      button.disabled = !client.available || (action === "$stop" ? state.state !== "running" : state.state === "running");
+      button.disabled = !client.available || (action === "$stop" ? !busy : action === "$close" ? false : busy);
     const images = state.captures || [];
     const nextKey = images.map(image => image.id).join(",");
     if (nextKey === captureKey) return;

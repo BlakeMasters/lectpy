@@ -1,6 +1,8 @@
 import asyncio
 import hashlib
 import json
+import os
+import py_compile
 from pathlib import Path
 
 import pytest
@@ -104,6 +106,35 @@ def test_source_fingerprint_and_registered_actions():
         service.close()
 
 
+def test_runner_executes_hash_verified_source_not_stale_bytecode(tmp_path):
+    source = tmp_path / "cached.py"
+    original = (
+        "from lecture import section, text\n"
+        "from lecture.browser import PlaywrightControls, browser_script\n"
+        '@browser_script("result")\n'
+        'async def result(page):\n    return "old"\n'
+        "def main():\n"
+        '    control = PlaywrightControls("test", actions={"Run": result})\n'
+        '    with section("Test", controls=(control,)):\n'
+        '        text("test")\n'
+    )
+    source.write_text(original, encoding="utf-8")
+    stamp = source.stat().st_mtime
+    py_compile.compile(str(source))
+    source.write_text(original.replace('return "old"', 'return "new"'), encoding="utf-8")
+    os.utime(source, (stamp, stamp))
+    ctx = TraceExecutor().trace_file(source)
+    bundle = {
+        "events": ctx.log.to_list(),
+        "manifest": {"source_sha256": hashlib.sha256(source.read_bytes()).hexdigest()},
+    }
+    service = AutomationService(source, bundle, "http://127.0.0.1:9000")
+    try:
+        assert asyncio.run(service.scripts["result"](None)) == "new"
+    finally:
+        service.close()
+
+
 def test_duplicate_requests_busy_stop_and_timeout():
     source, _, bundle = example_bundle()
     service = AutomationService(source, bundle, "http://127.0.0.1:9000")
@@ -147,5 +178,27 @@ def test_duplicate_requests_busy_stop_and_timeout():
         service.submit("experiment", "experiment.wait", "timeout")
         service.active["experiment"].result(timeout=2)
         assert service.snapshot()["controls"]["experiment"]["state"] == "error"
+    finally:
+        service.close()
+
+
+def test_popup_named_lecture_does_not_lock_the_lecture_target():
+    source, _, bundle = example_bundle()
+    for event in bundle["events"]:
+        props = event.get("payload", {}).get("props", {})
+        if props.get("id") == "experiment":
+            props["id"] = "lecture"
+    service = AutomationService(source, bundle, "http://127.0.0.1:9000")
+
+    async def perform(id, action, step):
+        if action == "experiment.wait":
+            await asyncio.sleep(10)
+        service._state(id, "succeeded", "done")
+
+    service._perform = perform
+    try:
+        service.submit("lecture", "experiment.wait", "popup-wait")
+        service.submit("working", "board.work", "lecture-work")
+        assert service.snapshot()["controls"]["lecture"]["busy"] is True
     finally:
         service.close()

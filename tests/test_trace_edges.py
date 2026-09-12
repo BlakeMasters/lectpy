@@ -163,3 +163,20 @@ def test_trace_step_sequence_points_to_step_not_inspection(tmp_path):
     executor = TraceExecutor()
     events = executor.trace_file(path).log.subscribe()
     assert all(events[step.seq].kind == "step" for step in executor.steps)
+
+
+@pytest.mark.parametrize("encoding", ["utf-8-sig", "latin-1"])
+def test_python_source_encodings_work_in_check_trace_and_export(tmp_path, encoding):
+    from lecture.cli import main
+    from lecture.export_static import _bundle_source
+    from lecture.ir import LectureManifest
+
+    path = tmp_path / "encoded.py"
+    cookie = "# coding: latin-1\n" if encoding == "latin-1" else ""
+    source = cookie + 'from lecture import text\ndef main():\n    text("caf\u00e9")\n'
+    path.write_bytes(source.encode(encoding))
+    assert main(["check", str(path)]) == 0
+    events = TraceExecutor().trace_file(path).log.subscribe()
+    assert events[-1].payload["status"] == "ok"
+    assert [e.payload["markdown"] for e in events if e.kind == "text"] == ["caf\u00e9"]
+    assert _bundle_source(LectureManifest(source_file=str(path)))["text"] == source

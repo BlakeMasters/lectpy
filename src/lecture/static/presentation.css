@@ -40,6 +40,11 @@
 .section-highlight-violet { --trace-highlight: #7c3aed; }
 /* MathML ink can extend a few pixels beyond its line box (e.g. superscripts). */
 .lecture-equation-math { padding-block: .25em; }
+.lecture-code [data-code-line] {
+  display: inline-block;
+  min-width: 1ch;
+  min-height: 1em;
+}
 .lecture-code [data-code-line][aria-current=true] {
   background: color-mix(in srgb, var(--trace-highlight, #d97706) 18%, Canvas);
   outline: 1px solid var(--trace-highlight, #d97706);

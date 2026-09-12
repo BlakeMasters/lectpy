@@ -70,7 +70,7 @@ class TexParser {
       if (ch === "{") depth += 1;
       else if (ch === "}") depth -= 1;
     }
-    return this.source.slice(start, Math.max(start, this.index - 1));
+    return this.source.slice(start, depth ? this.index : this.index - 1);
   }
 
   readScriptText() {
@@ -92,7 +92,7 @@ class TexParser {
       if (this.source[this.index] === "}") this.index += 1;
       return `<mrow>${body}</mrow>`;
     }
-    return this.atom();
+    return this.atom(false); // Unbraced TeX arguments consume one token, not a number run.
   }
 
   script() {
@@ -106,7 +106,7 @@ class TexParser {
 
   simple(source) {
     if (!source) return "<mrow/>";
-    if (/^[0-9]+$/.test(source)) return `<mn>${equationEscape(source)}</mn>`;
+    if (/^(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/.test(source)) return `<mn>${equationEscape(source)}</mn>`;
     if (/^[A-Za-z]+$/.test(source)) return `<mi>${equationEscape(source)}</mi>`;
     return `<mrow>${[...source].map(atom).join("")}</mrow>`;
   }
@@ -152,8 +152,11 @@ class TexParser {
     }
     if (name === "left" || name === "right") {
       this.skipSpace();
+      if (this.source[this.index] === "\\") return this.command(this.readCommand());
+      if (this.source[this.index] === ".") { this.index += 1; return ""; }
       return this.source[this.index] ? atom(this.source[this.index++]) : "";
     }
+    if (["{", "}", "|", "_", "%", "#", "&", "$"].includes(name)) return atom(name);
     if (name === "," || name === ";" || name === ":" || name === "!") {
       return name === "!" ? "<mspace width=\"-0.15em\"/>" : "<mspace width=\"0.2em\"/>";
     }
@@ -169,21 +172,28 @@ class TexParser {
     return `<mtext>\\${equationEscape(name)}</mtext>`;
   }
 
-  atom() {
+  atom(numbers = true) {
     if (++this.depth > 64) throw new Error("Equation nesting limit exceeded");
     try {
-      return this.readAtom();
+      return this.readAtom(numbers);
     } finally {
       this.depth -= 1;
     }
   }
 
-  readAtom() {
+  readAtom(numbers) {
     this.skipSpace();
     const ch = this.source[this.index];
     if (!ch) return "";
     if (ch === "{") return this.group();
     if (ch === "\\") return this.command(this.readCommand());
+    if (numbers && /[0-9.]/.test(ch)) {
+      const number = this.source.slice(this.index).match(/^(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)/)?.[0];
+      if (number) {
+        this.index += number.length;
+        return `<mn>${number}</mn>`;
+      }
+    }
     this.index += 1;
     return atom(ch);
   }

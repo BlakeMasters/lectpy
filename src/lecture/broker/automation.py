@@ -33,7 +33,8 @@ class AutomationService:
                 self.specs[props["id"]] = props
         if not self.specs:
             raise ValueError("bundle has no Playwright controls")
-        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        source_bytes = source.read_bytes()
+        digest = hashlib.sha256(source_bytes).hexdigest()
         if digest != bundle["manifest"].get("source_sha256"):
             raise ValueError(
                 "script source changed: rebuild the lecture before serving with --scripts"
@@ -45,7 +46,7 @@ class AutomationService:
         self.module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = self.module
         try:
-            spec.loader.exec_module(self.module)
+            exec(compile(source_bytes, str(source), "exec"), self.module.__dict__)
             self.scripts = {}
             for value in vars(self.module).values():
                 script_id = getattr(value, "__lecture_browser_script__", None)
@@ -83,9 +84,16 @@ class AutomationService:
 
     def snapshot(self) -> dict:
         with self.lock:
-            return json.loads(
-                json.dumps({"execution_id": self.execution_id, "controls": self.states})
-            )
+            controls = {}
+            for id, state in self.states.items():
+                future = self.active.get(self._target(self.specs[id]))
+                controls[id] = {**state, "busy": bool(future and not future.done())}
+            return json.loads(json.dumps({"execution_id": self.execution_id, "controls": controls}))
+
+    @staticmethod
+    def _target(spec: dict) -> str:
+        # '$' cannot occur in author IDs; a popup named 'lecture' is independent.
+        return "$lecture" if spec["target"] == "lecture" else spec["id"]
 
     def _state(self, id: str, state: str, message: str) -> None:
         with self.lock:
@@ -103,7 +111,7 @@ class AutomationService:
         if action not in {"$open", "$close", "$capture", "$stop", *actions}:
             raise ValueError("action is not declared by this control")
         identity = (id, action, step)
-        target = "lecture" if spec["target"] == "lecture" else id
+        target = self._target(spec)
         with self.lock:
             if request_id in self.requests:
                 if self.requests[request_id] != identity:
@@ -191,7 +199,7 @@ class AutomationService:
         task = asyncio.current_task()
         self.tasks.add(task)
         spec = self.specs[id]
-        target = "lecture" if spec["target"] == "lecture" else id
+        target = self._target(spec)
         lock = self.target_locks.setdefault(target, asyncio.Lock())
         try:
             async with lock:

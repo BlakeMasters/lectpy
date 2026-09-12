@@ -15,7 +15,7 @@ export class AutomationClient {
   available: boolean;
   refresh(): Promise<void>;
   run(spec: ControlSpec, action: string, step: number): Promise<void>;
-  navigate(before: ControlSpec[], after: ControlSpec[], from: number, to: number): void;
+  navigate(before: ControlSpec[], after: ControlSpec[], from: number, to: number): Promise<void>;
 }
 export function automationClient(executionId: string): AutomationClient;
 export function mountAutomation(host: HTMLElement, spec: ControlSpec, client: AutomationClient): () => void;

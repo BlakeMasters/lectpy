@@ -109,7 +109,8 @@ class TraceExecutor:
     def trace_file(self, path: str | Path) -> ExecutionContext:
         self.steps.clear()
         path = Path(path).resolve()
-        source = path.read_text(encoding="utf-8")
+        source_bytes = path.read_bytes()
+        source = importlib.util.decode_source(source_bytes)
         source_lines = {i + 1: l for i, l in enumerate(source.splitlines())}
         directives = _parse_comment_directives(source_lines)
 
@@ -131,7 +132,7 @@ class TraceExecutor:
         try:
             # Execute the source we just read, not a timestamp/size-matched .pyc
             # left by a rapid edit of the same file.
-            exec(compile(source, str(path), "exec"), module.__dict__)
+            exec(compile(source_bytes, str(path), "exec"), module.__dict__)
         except Exception as e:
             ctx.emit("error", {"message": f"import failed: {e!r}"})
             ctx.emit("session_end", {"status": "import-error"})

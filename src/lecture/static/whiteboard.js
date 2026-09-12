@@ -360,11 +360,13 @@ function background(ctx, drawing) {
       }
   }
 }
+let drawingSerial = 0;
 export function drawingSvg(drawing) {
   const d = validateDrawing(drawing);
+  const patternId = `lecture-board-paper-${++drawingSerial}`;
   let content = '<rect width="100%" height="100%" fill="white"/>';
   if (d.background !== "blank")
-    content += `<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">${d.background === "grid" ? '<path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e2e8f0"/>' : '<circle cx="0" cy="0" r="1" fill="#cbd5e1"/>'}</pattern></defs><rect width="100%" height="100%" fill="url(#grid)"/>`;
+    content += `<defs><pattern id="${patternId}" width="24" height="24" patternUnits="userSpaceOnUse">${d.background === "grid" ? '<path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e2e8f0"/>' : '<circle cx="0" cy="0" r="1" fill="#cbd5e1"/>'}</pattern></defs><rect width="100%" height="100%" fill="url(#${patternId})"/>`;
   for (const item of d.items) {
     const a = item.points[0],
       b = item.points.at(-1),
