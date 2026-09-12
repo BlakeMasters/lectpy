@@ -140,11 +140,32 @@ def cmd_serve(args: argparse.Namespace) -> int:
         return 2
     handler = partial(http.server.SimpleHTTPRequestHandler, directory=str(root))
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", args.port or 8000), handler)
+    automation = None
+    if args.scripts:
+        from .broker.automation import AutomationService
+        from .broker.automation_http import automation_handler
+
+        try:
+            automation = AutomationService(
+                Path(args.scripts).resolve(),
+                json.loads((root / "lecture.json").read_text(encoding="utf-8")),
+                f"http://127.0.0.1:{httpd.server_port}",
+                headless=args.headless,
+            )
+            httpd.RequestHandlerClass = automation_handler(root.resolve(), automation)
+        except (ValueError, OSError) as exc:
+            httpd.server_close()
+            raise ConfigError(str(exc)) from exc
+        print("Local scripts enabled. Open a control to launch the managed browser.")
     print(f"serving {root.resolve()} at http://127.0.0.1:{httpd.server_port}/ (Ctrl+C to stop)")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        httpd.server_close()
+        if automation:
+            automation.close()
     return 0
 
 
@@ -265,6 +286,12 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("serve", help="serve a static bundle on loopback")
     s.add_argument("dir", nargs="?", default="dist/lecture_01")
     s.add_argument("--port", type=int, default=8000)
+    s.add_argument(
+        "--scripts", help="enable registered Playwright scripts from this lecture source"
+    )
+    s.add_argument(
+        "--headless", action="store_true", help="run managed browsers headlessly (testing)"
+    )
     s.set_defaults(func=cmd_serve)
 
     s = sub.add_parser("doctor", help="environment + self-test diagnostics")

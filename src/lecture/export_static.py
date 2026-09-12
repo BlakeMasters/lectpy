@@ -181,6 +181,7 @@ function renderOutput(ev){
     return '<pre class="term">'+esc(cmd)+'</pre><p class="muted">Recorded process block — attach a broker for a live PTY.</p>';
   }
   if(ev.kind==="component"){
+    if(p.component_type==="playwright-controls")return '<div data-automation="'+ev.seq+'"></div>';
     if(p.component_type==="whiteboard")return '<div data-whiteboard="'+ev.seq+'"></div>';
     if(p.component_type==="browser-window"){
       var props=p.props||{},action=props.action||"open",id=props.window_id||"reference",url=safeBrowserUrl(props.url),title=props.title||"Reference";
@@ -222,6 +223,11 @@ function render(){
   upto.forEach(function(ev){var current=!priorSeqs[ev.seq],section=presentationFor(ev),marker=section.name&&section.name!==lastSectionName?'<div class="section-marker" aria-hidden="true">'+esc(section.name)+'</div>':'';lastSectionName=section.name;h+='<article class="lecture-output '+section.className+(current?' lecture-output-current':'')+'" data-output-seq="'+ev.seq+'"'+(section.name?' data-section="'+esc(section.name)+'"':'')+(current?' aria-current="step"':'')+'>'+marker+renderOutput(ev)+'</article>'});
   boardDisposers.forEach(function(dispose){dispose()});boardDisposers=[];
   stage.innerHTML=h||'<p class="muted">No content recorded.</p>';
+  upto.forEach(function(ev){
+    if((ev.payload||{}).component_type!=="playwright-controls"||typeof mountAutomation!=="function")return;
+    var host=stage.querySelector('[data-automation="'+ev.seq+'"]');
+    boardDisposers.push(mountAutomation(host,ev.payload.props,automationClient(ev.execution_id)));
+  });
   var activeOutput=stage.querySelector('.lecture-output-current');
   if(activeOutput&&view==='presenter'&&!reduced){try{activeOutput.scrollIntoView({block:'center'})}catch(e){}}
   upto.forEach(function(ev){
@@ -276,7 +282,9 @@ function syncReferenceWindows(from,to){
   browserEventsAt(from).forEach(function(e){prior[e.seq]=true});
   for(i=0;i<target.length;i++)if(!prior[target[i].seq])applyBrowserEvent(target[i]);
 }
-function goTo(next){var target=Math.min(Math.max(next,0),Math.max(steps.length-1,0));syncReferenceWindows(idx,target);idx=target;render()}
+function goTo(next){var target=Math.min(Math.max(next,0),Math.max(steps.length-1,0));
+  if(view!=="reader"&&typeof automationClient==="function"&&events.length)automationClient(events[0].execution_id).navigate(activeControlBindings(outputEventsAt(idx),events),activeControlBindings(outputEventsAt(target),events),idx,target);
+  syncReferenceWindows(idx,target);idx=target;render()}
 function go(d){goTo(idx+d)}
 document.getElementById("prev").addEventListener("click",function(){go(-1)});
 document.getElementById("next").addEventListener("click",function(){go(1)});
@@ -330,6 +338,8 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
     viewer = presentation_js.replace("export function ", "function ") + "\n" + VIEWER_JS
     script_type = ""
     modules = []
+    if any(e.get("payload", {}).get("component_type") == "playwright-controls" for e in bundle.get("events", [])):
+        modules.append((static_dir / "automation.js").read_text(encoding="utf-8"))
     if has_whiteboard:
         modules.append(
             (Path(__file__).parent / "static" / "whiteboard.js").read_text(encoding="utf-8")
@@ -355,7 +365,7 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' http: https: data: blob:; media-src 'self' http: https: data: blob:; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self'; style-src 'unsafe-inline'; img-src 'self' http: https: data: blob:; media-src 'self' http: https: data: blob:; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'">
 <title>{html.escape(title)}</title>
 <style>{VIEWER_CSS}\n{presentation_css}</style>
 </head>

@@ -111,3 +111,7 @@ steps. The generated bundle is under ignored `var/`; the reusable example is pub
 Equations currently support a small TeX subset, not full LaTeX. UML supports
 structured class and sequence specifications, not arbitrary PlantUML/Mermaid text.
 See [interactive outputs](INTERACTIVE_OUTPUTS.md) for those contracts.
+
+Sections also accept optional `controls=(PlaywrightControls(...),)` for local
+browser scripts. See [browser controls](BROWSER_CONTROLS.md) for the runner,
+popup lifecycle, whiteboard interaction and rendered-code highlighting example.

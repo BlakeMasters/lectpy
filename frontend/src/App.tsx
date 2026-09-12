@@ -179,6 +179,14 @@ export default function App() {
   const go = useCallback(
     (next: number) => {
       const v = clampStep(typeof next === "number" ? next : idx, steps.length);
+      if (bundle && view !== "reader" && bundle.events.some(e => e.payload?.["component_type"] === "playwright-controls")) {
+        import("../../src/lecture/static/automation.js").then(({automationClient, activeControlBindings}) => {
+          automationClient(bundle.events[0].execution_id).navigate(
+            activeControlBindings(visibleOutputs(bundle.events, steps, idx), bundle.events),
+            activeControlBindings(visibleOutputs(bundle.events, steps, v), bundle.events), idx, v,
+          );
+        });
+      }
       syncReferenceWindows(idx, v);
       setIdx(v);
       try {
@@ -189,7 +197,7 @@ export default function App() {
         /* file:// or sandboxed contexts */
       }
     },
-    [idx, steps.length, syncReferenceWindows],
+    [idx, steps, syncReferenceWindows, bundle, view],
   );
 
   // Browser back/forward moves through steps.

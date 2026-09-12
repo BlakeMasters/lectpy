@@ -14,6 +14,7 @@ import { umlDescription, umlSvg } from "../../src/lecture/static/uml.js";
 
 type P = { event: LectureEvent };
 const BrowserWindow = lazy(() => import("./BrowserWindow"));
+const Automation = lazy(() => import("./Automation"));
 
 function payload(event: LectureEvent): Record<string, unknown> {
   return event.payload ?? {};
@@ -168,6 +169,9 @@ export function TerminalBlock({ event }: P) {
 
 export function ComponentBlock({ event }: P) {
   const p = payload(event);
+  if (p["component_type"] === "playwright-controls") {
+    return <Suspense fallback={<p role="status">Loading browser controls…</p>}><Automation event={event} /></Suspense>;
+  }
   if (p["component_type"] === "whiteboard") return <Whiteboard event={event} />;
   if (p["component_type"] === "browser-window") {
     return (

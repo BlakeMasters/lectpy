@@ -61,6 +61,13 @@ fonts, output highlighting, spacing, and sizing per section. See
 [presentation options](docs/OPTIONS.md) and the six-scene
 [runnable example](examples/presentation_options.py).
 
+Optional section-level `PlaywrightControls` add named Python actions for managed
+browser popups, the lecture's whiteboards, and rendered code. Controls provide
+Open / focus, Stop, Capture, and Close without replaying actions on rewind.
+See [browser controls](docs/BROWSER_CONTROLS.md) and the four-scene
+[browser lab](examples/playwright_controls.py). Playwright is an optional extra;
+normal exports do not start browsers or run these actions.
+
 ## Design (summary)
 
 Python SDK → v1 event log + artifacts → static viewer or React shell.

@@ -18,7 +18,13 @@ MAX_TABLE_COLUMNS = 100
 MAX_TABLE_ROWS = 1000
 
 
-def code_payload(source: str, language: str = "", title: str = "") -> dict[str, Any]:
+def code_payload(
+    source: str,
+    language: str = "",
+    title: str = "",
+    *,
+    output_id: str | None = None,
+) -> dict[str, Any]:
     if not all(isinstance(v, str) for v in (source, language, title)):
         raise TypeError("code source, language, and title must be strings")
     label = title or (f"Code ({language})" if language else "Code")
@@ -26,15 +32,26 @@ def code_payload(source: str, language: str = "", title: str = "") -> dict[str, 
     longest = max((len(run) for run in re.findall(r"`+", source)), default=0)
     fence = "`" * max(3, longest + 1)
     language = language.strip().replace("\n", " ").replace("\r", " ")
+    rendered = html.escape(source)
+    output_attribute = ""
+    if output_id is not None:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", output_id):
+            raise ValueError("invalid code output_id")
+        output_attribute = f' data-output-id="{output_id}"'
+        rendered = "\n".join(
+            f'<span data-code-line="{i}">{html.escape(line)}</span>'
+            for i, line in enumerate(source.split("\n"), 1)
+        )
     return {
         "format": "code",
         "language": language,
         "title": title,
         "markdown": f"{fence}{language}\n{source}\n{fence}",
         "html": (
-            f'<figure class="lecture-code"><figcaption>{html.escape(label)}</figcaption>'
+            f'<figure class="lecture-code"{output_attribute}>'
+            f'<figcaption>{html.escape(label)}</figcaption>'
             f'<pre class="code" tabindex="0" aria-label="{html.escape(label, quote=True)}">'
-            f"<code>{html.escape(source)}</code></pre></figure>"
+            f"<code>{rendered}</code></pre></figure>"
         ),
     }
 

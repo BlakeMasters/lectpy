@@ -71,6 +71,7 @@ class ExecutionContext:
     _objects: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _obj_counter: int = field(default=0, init=False, repr=False)
     _presentation_stack: list[dict[str, str]] = field(default_factory=list, init=False, repr=False)
+    _control_stack: list[list[str]] = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.log = EventLog(self.session_id, self.execution_id)
@@ -107,6 +108,15 @@ class ExecutionContext:
             return {}
         return {k: v for k, v in self._presentation_stack[-1].items() if k != "name"}
 
+    @contextmanager
+    def control_scope(self, bindings: list[str]) -> Iterator[None]:
+        inherited = self._control_stack[-1] if self._control_stack else []
+        self._control_stack.append([*inherited, *bindings])
+        try:
+            yield
+        finally:
+            self._control_stack.pop()
+
     # -- emit -----------------------------------------------------------------
     def emit(
         self,
@@ -126,6 +136,8 @@ class ExecutionContext:
         ):
             raise RuntimeError(f"event budget exceeded ({self.policy.max_events})")
         data = dict(payload or {})
+        if self._control_stack and self._control_stack[-1]:
+            data["control_ids"] = list(self._control_stack[-1])
         if self._presentation_stack and kind not in {"session_start", "session_end"}:
             data.setdefault("presentation", dict(self._presentation_stack[-1]))
         return self.log.append(kind, data, source_location=loc, artifact_refs=artifact_refs)

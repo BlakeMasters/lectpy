@@ -96,11 +96,17 @@ def text(markdown: str) -> Event:
     return _emit("text", {"markdown": markdown, "html": markdown_to_html(markdown)})
 
 
-def code(source: str, language: str = "", title: str = "") -> Event:
+def code(
+    source: str,
+    language: str = "",
+    title: str = "",
+    *,
+    output_id: str | None = None,
+) -> Event:
     """Display source verbatim with a language label; never execute it."""
     from .formatting import code_payload
 
-    return _emit("text", code_payload(source, language, title))
+    return _emit("text", code_payload(source, language, title, output_id=_output_id(output_id)))
 
 
 def table(
@@ -399,6 +405,7 @@ def section(
     text_size: str | None = None,
     highlight: str | None = None,
     focus: str | None = None,
+    controls: Sequence[Any] = (),
 ):
     """Scope presentation hints for a coherent lecture section.
 
@@ -426,7 +433,21 @@ def section(
         "focus": focus,
     }
     resolved = base.with_options(**{k: v for k, v in overrides.items() if v is not None})
-    with ctx.presentation_scope({"name": name.strip(), **resolved.to_dict()}):
+    from .browser import PlaywrightControls
+
+    if not isinstance(controls, (tuple, list)) or not all(
+        isinstance(control, PlaywrightControls) for control in controls
+    ):
+        raise TypeError("section controls must be a tuple/list of PlaywrightControls")
+    if len({control.id for control in controls}) != len(controls):
+        raise ValueError("section control ids must be unique")
+    bindings = [f"{ctx.execution_id}:{len(ctx.log)}:{control.id}" for control in controls]
+    with (
+        ctx.presentation_scope({"name": name.strip(), **resolved.to_dict()}),
+        ctx.control_scope(bindings),
+    ):
+        for control, binding in zip(controls, bindings, strict=True):
+            component("playwright-controls", {**control.to_props(), "binding_id": binding})
         yield
 
 

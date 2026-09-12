@@ -434,11 +434,11 @@ export function mountWhiteboard(host, props = {}, state = {}) {
   root.innerHTML = `<style>${STYLE}</style><button class="wb-spawn" type="button"></button><div class="wb-panel" hidden>
     <div class="wb-toolbar"><strong class="wb-title"></strong><button type="button" data-action="close">Close whiteboard</button><button type="button" data-action="fullscreen">Full screen</button></div>
     <div class="wb-toolbar" role="group" aria-label="Drawing tools">
-    <label>Tool <select class="wb-tool">${TOOLS.map((t) => `<option value="${t}">${t === "eraser" ? "Stroke eraser" : t[0].toUpperCase() + t.slice(1)}</option>`).join("")}</select></label>
+    <label>Tool <select class="wb-tool" aria-label="Tool">${TOOLS.map((t) => `<option value="${t}">${t === "eraser" ? "Stroke eraser" : t[0].toUpperCase() + t.slice(1)}</option>`).join("")}</select></label>
     <label>Color <input class="wb-color" type="color" value="#1d4ed8"></label>
     <label>Size <input class="wb-size" type="range" min="1" max="48" value="4"><output class="wb-size-label">4</output></label>
     <label><input class="wb-pen-only" type="checkbox" checked> Ignore touch (pen + mouse)</label>
-    <label>Paper <select class="wb-paper"><option value="blank">Blank</option><option value="grid">Grid</option><option value="dots">Dots</option></select></label>
+    <label>Paper <select class="wb-paper" aria-label="Paper"><option value="blank">Blank</option><option value="grid">Grid</option><option value="dots">Dots</option></select></label>
     <button type="button" data-action="undo">Undo</button><button type="button" data-action="redo">Redo</button><button type="button" data-action="clear">Clear board</button></div>
     <div class="wb-toolbar"><label>Text <input class="wb-text" type="text" maxlength="1000" placeholder="Label or equation"></label><button type="button" data-action="text">Add text at center</button><button type="button" data-action="insert"${props.insertable === true ? "" : " hidden"}>Insert snapshot</button>
     <button type="button" data-action="svg">Save SVG</button><button type="button" data-action="png">Save PNG</button><button type="button" data-action="json">Save drawing</button>
