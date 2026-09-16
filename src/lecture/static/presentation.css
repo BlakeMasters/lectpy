@@ -63,3 +63,57 @@
   padding-inline-start: 0;
   background: none;
 }
+
+/* Synchronized step playback — shared by the React and static viewers. */
+.step-playback-host { max-inline-size: 100%; }
+.step-playback { color: CanvasText; max-inline-size: 100%; }
+.step-playback-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-block-end: .85rem; }
+.step-playback-heading h2 { margin: 0; font-size: 1.25em; font-weight: 500; }
+.step-playback-kicker, .step-playback-figure-heading strong { color: color-mix(in srgb, CanvasText 68%, Canvas); font-size: .72em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.step-playback-readout { display: flex; align-items: baseline; gap: .45rem; white-space: nowrap; }
+.step-playback-readout strong { font-weight: 500; }
+.step-playback-controls { display: flex; align-items: end; gap: .8rem 1rem; flex-wrap: wrap; margin-block-end: 1rem; }
+.step-playback-button { display: inline-flex; align-items: center; gap: .45rem; min-inline-size: 7rem; }
+.step-playback-range { flex: 1 1 16rem; min-inline-size: 13rem; }
+.step-playback-range-label { display: flex; justify-content: space-between; gap: 1rem; margin-block-end: .25rem; font-size: .86em; }
+.step-playback-range input { display: block; inline-size: 100%; }
+.step-playback-grid { display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); gap: 1rem 1.25rem; align-items: start; }
+.step-playback-figure { min-inline-size: 0; margin: 0; }
+.step-playback-figure-heading { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; margin-block-end: .2rem; }
+.step-playback-figure-heading strong { color: CanvasText; font-size: .82em; }
+.step-playback-muted { color: color-mix(in srgb, CanvasText 66%, Canvas); }
+.step-playback-svg-wrap { inline-size: 100%; min-inline-size: 0; }
+.step-playback-svg-wrap svg { display: block; inline-size: 100%; block-size: auto; overflow: visible; }
+.step-playback-svg-text { fill: currentColor; font-size: 12px; }
+.step-playback-series-1 { color: #2563eb; }
+.step-playback-series-2 { color: #d97706; }
+.step-playback-series-3 { color: #0f766e; }
+.step-playback-series-4 { color: #7c3aed; }
+.step-playback-series-5 { color: #0891b2; }
+.step-playback-series-6 { color: #be123c; }
+.step-playback-ghost-line { fill: none; stroke: currentColor; stroke-width: 2.1; opacity: .18; }
+.step-playback-live-line { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.step-playback-contour { fill: none; stroke: color-mix(in srgb, CanvasText 34%, Canvas); stroke-width: 1; opacity: .48; }
+.step-playback-grid-line { stroke: color-mix(in srgb, CanvasText 18%, Canvas); stroke-width: 1; }
+.step-playback-frame { fill: none; stroke: color-mix(in srgb, CanvasText 28%, Canvas); stroke-width: 1; }
+.step-playback-start { fill: Canvas; stroke: CanvasText; stroke-width: 1.5; }
+.step-playback-target { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 2 3; }
+.step-playback-current-marker { fill: currentColor; stroke: Canvas; stroke-width: 1.5; }
+.step-playback-reference-line { fill: none; stroke: currentColor; stroke-width: 1.2; stroke-dasharray: 3 5; opacity: .7; }
+.step-playback-muted-stroke { color: color-mix(in srgb, CanvasText 66%, Canvas); }
+.step-playback-panel-title { fill: currentColor; }
+.step-playback-status { display: flex; align-items: baseline; gap: .55rem; flex-wrap: wrap; margin-block-start: .65rem; }
+.step-playback-status-dot { display: inline-block; inline-size: .55rem; block-size: .55rem; flex: 0 0 auto; border-radius: 50%; background: currentColor; }
+.step-playback-phase { font-weight: 500; }
+.step-playback-metrics { color: color-mix(in srgb, CanvasText 66%, Canvas); }
+.step-playback-legend { display: flex; flex-wrap: wrap; gap: .35rem 1rem; font-size: .8em; }
+.step-playback-legend [role=listitem] { display: inline-flex; align-items: center; gap: .4rem; }
+@media (prefers-color-scheme: dark) {
+  .step-playback-series-1 { color: #82aaff; }
+  .step-playback-series-2 { color: #fbbf66; }
+  .step-playback-series-3 { color: #5eead4; }
+  .step-playback-series-4 { color: #c4a4ff; }
+  .step-playback-series-5 { color: #67e8f9; }
+  .step-playback-series-6 { color: #fda4af; }
+}
+@media (max-width: 720px) { .step-playback-grid { grid-template-columns: 1fr; } }

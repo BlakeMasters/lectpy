@@ -24,6 +24,14 @@ _current: contextvars.ContextVar[ExecutionContext | None] = contextvars.ContextV
 
 MAX_REPR_LEN = 2000
 MAX_PREVIEW_LEN = 500
+MAX_STEP_KEYABLES = 12
+
+
+def _merge_step_keyables(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged = {item["key"]: dict(item) for group in groups for item in group}
+    if len(merged) > MAX_STEP_KEYABLES:
+        raise ValueError(f"step_keyables supports at most {MAX_STEP_KEYABLES} merged bindings")
+    return list(merged.values())
 
 
 def _summarize(value: Any) -> dict[str, Any]:
@@ -72,6 +80,9 @@ class ExecutionContext:
     _obj_counter: int = field(default=0, init=False, repr=False)
     _presentation_stack: list[dict[str, str]] = field(default_factory=list, init=False, repr=False)
     _control_stack: list[list[str]] = field(default_factory=list, init=False, repr=False)
+    _step_keyables_stack: list[list[dict[str, Any]]] = field(
+        default_factory=list, init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         self.log = EventLog(self.session_id, self.execution_id)
@@ -117,6 +128,16 @@ class ExecutionContext:
         finally:
             self._control_stack.pop()
 
+    @contextmanager
+    def step_keyable_scope(self, keyables: list[dict[str, Any]]) -> Iterator[None]:
+        """Attach bounded keyboard actions to events emitted in this scope."""
+        inherited = self._step_keyables_stack[-1] if self._step_keyables_stack else []
+        self._step_keyables_stack.append(_merge_step_keyables(inherited, keyables))
+        try:
+            yield
+        finally:
+            self._step_keyables_stack.pop()
+
     # -- emit -----------------------------------------------------------------
     def emit(
         self,
@@ -138,6 +159,12 @@ class ExecutionContext:
         data = dict(payload or {})
         if self._control_stack and self._control_stack[-1]:
             data["control_ids"] = list(self._control_stack[-1])
+        if self._step_keyables_stack and self._step_keyables_stack[-1]:
+            inherited = self._step_keyables_stack[-1]
+            explicit = data.get("step_keyables")
+            data["step_keyables"] = _merge_step_keyables(
+                inherited, explicit if isinstance(explicit, list) else []
+            )
         if self._presentation_stack and kind not in {"session_start", "session_end"}:
             data.setdefault("presentation", dict(self._presentation_stack[-1]))
         return self.log.append(kind, data, source_location=loc, artifact_refs=artifact_refs)

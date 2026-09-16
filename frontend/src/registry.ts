@@ -10,7 +10,7 @@ export interface RendererContribution {
   /** Event kinds this renderer handles (v0.2 dispatches on event kind;
    *  MIME-typed dispatch arrives with widget/component interop in v0.4). */
   kinds: readonly string[];
-  component: ComponentType<{ event: LectureEvent }>;
+  component: ComponentType<{ event: LectureEvent; active?: boolean }>;
   /** Trusted host UI (may live in the host DOM) vs sandboxed content. */
   trusted: boolean;
 }

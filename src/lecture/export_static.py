@@ -86,6 +86,7 @@ var showSource=false;
 var pos=document.getElementById("pos");
 var meta=document.getElementById("meta");
 var boardStates=new Map(),boardDisposers=[];
+var playbackMounts=new Map();
 var browserController=typeof BrowserWindowController==="function"?new BrowserWindowController():null;
 function safeBrowserUrl(value){try{var u=new URL(String(value||""));return u.protocol==="http:"||u.protocol==="https:"?u.href:""}catch(e){return ""}}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
@@ -184,6 +185,10 @@ function renderOutput(ev){
   if(ev.kind==="component"){
     if(p.component_type==="playwright-controls")return '<div data-automation="'+ev.seq+'"></div>';
     if(p.component_type==="whiteboard")return '<div data-whiteboard="'+ev.seq+'"></div>';
+    if(p.component_type==="step-playback"){
+      var playbackProps=p.props||{},playbackId=playbackProps.output_id?String(playbackProps.output_id):"";
+      return '<div data-step-playback="'+ev.seq+'"'+(playbackId?' data-output-id="'+esc(playbackId)+'"':'')+'></div>';
+    }
     if(p.component_type==="browser-window"){
       var props=p.props||{},action=props.action||"open",id=props.window_id||"reference",url=safeBrowserUrl(props.url),title=props.title||"Reference";
       if(action==="close")return '<section class="lecture-browser-window" data-browser-action="close" data-browser-id="'+esc(id)+'"><h3>Reference window: close request</h3><p class="muted">Window <code>'+esc(id)+'</code> is released when this step is reached.</p><p class="browser-window-status" role="status" aria-live="polite">Close request recorded.</p></section>';
@@ -221,13 +226,27 @@ function render(){
   var insp=events.filter(function(e){return e.kind==="inspect"&&e.seq<=endSeq&&e.seq>clearSeq}).slice(-8);
   renderWorkspace(s,idx>0?steps[idx-1]:null,insp);
   var lastSectionName="";
-  upto.forEach(function(ev){var current=!priorSeqs[ev.seq],section=presentationFor(ev),marker=section.name&&section.name!==lastSectionName?'<div class="section-marker" aria-hidden="true">'+esc(section.name)+'</div>':'';lastSectionName=section.name;h+='<article class="lecture-output '+section.className+(current?' lecture-output-current':'')+'" data-output-seq="'+ev.seq+'"'+(section.name?' data-section="'+esc(section.name)+'"':'')+(current?' aria-current="step"':'')+'>'+marker+renderOutput(ev)+'</article>'});
+  upto.forEach(function(ev){var current=view!=="reader"&&!priorSeqs[ev.seq],section=presentationFor(ev),marker=section.name&&section.name!==lastSectionName?'<div class="section-marker" aria-hidden="true">'+esc(section.name)+'</div>':'',keyables=(ev.payload||{}).step_keyables,keyAttr=Array.isArray(keyables)&&keyables.length?' data-step-keyables="'+esc(JSON.stringify(keyables))+'"':'';lastSectionName=section.name;h+='<article class="lecture-output '+section.className+(current?' lecture-output-current':'')+'" data-output-seq="'+ev.seq+'"'+(section.name?' data-section="'+esc(section.name)+'"':'')+keyAttr+(current?' aria-current="step"':'')+'>'+marker+renderOutput(ev)+'</article>'});
   boardDisposers.forEach(function(dispose){dispose()});boardDisposers=[];
+  var visibleSeqs=new Set(upto.map(function(ev){return ev.seq}));
+  playbackMounts.forEach(function(mount,seq){
+    if(!visibleSeqs.has(seq)){mount.dispose();playbackMounts.delete(seq)}else mount.host.remove();
+  });
   stage.innerHTML=h||'<p class="muted">No content recorded.</p>';
   upto.forEach(function(ev){
     if((ev.payload||{}).component_type!=="playwright-controls"||typeof mountAutomation!=="function")return;
     var host=stage.querySelector('[data-automation="'+ev.seq+'"]');
     boardDisposers.push(mountAutomation(host,ev.payload.props,automationClient(ev.execution_id)));
+  });
+  upto.forEach(function(ev){
+    if((ev.payload||{}).component_type!=="step-playback"||typeof mountStepPlayback!=="function")return;
+    var host=stage.querySelector('[data-step-playback="'+ev.seq+'"]');
+    if(!host)return;
+    var active=view!=="reader"&&!priorSeqs[ev.seq],existing=playbackMounts.get(ev.seq);
+    if(existing){
+      host.replaceWith(existing.host);
+      existing.host.dispatchEvent(new CustomEvent("lectpy:step-playback-active",{detail:{active:active}}));
+    }else playbackMounts.set(ev.seq,{host:host,dispose:mountStepPlayback(host,ev.payload.props||{},{active:active})});
   });
   var activeOutput=stage.querySelector('.lecture-output-current');
   if(activeOutput&&view==='presenter'&&!reduced){try{activeOutput.scrollIntoView({block:'center'})}catch(e){}}
@@ -315,11 +334,7 @@ window.addEventListener("popstate",function(){
   view=resolveView(p.get("view"));render();
 });
 document.addEventListener("keydown",function(e){
-  if(view==="reader")return;
-  if(e.target&&e.target.closest&&e.target.closest('input,textarea,select,button,a,[contenteditable=true],[role=slider],.lecture-table,.lecture-code pre'))return;
-  if(["ArrowRight","ArrowLeft","Home","End"].indexOf(e.key)>=0)e.preventDefault();
-  if(e.key==="ArrowRight"){go(1)}else if(e.key==="ArrowLeft"){go(-1)}
-  else if(e.key==="Home"){goTo(0)}else if(e.key==="End"){goTo(Math.max(steps.length-1,0))}
+  handleStepKey(e,{root:stage,step:steps[idx],reader:view==="reader",index:idx,count:steps.length,navigate:goTo});
 });
 var reduced=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 if(!reduced){try{stage.scrollIntoView({block:"nearest"})}catch(e){}}
@@ -344,10 +359,22 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
         and event.get("payload", {}).get("component_type") == "browser-window"
         for event in bundle.get("events", [])
     )
+    has_step_playback = any(
+        event.get("kind") == "component"
+        and event.get("payload", {}).get("component_type") == "step-playback"
+        for event in bundle.get("events", [])
+    )
     static_dir = Path(__file__).parent / "static"
     presentation_js = (static_dir / "presentation.js").read_text(encoding="utf-8")
     presentation_css = (static_dir / "presentation.css").read_text(encoding="utf-8")
-    viewer = presentation_js.replace("export function ", "function ") + "\n" + VIEWER_JS
+    keyables_js = (static_dir / "step_keyables.js").read_text(encoding="utf-8")
+    viewer = (
+        presentation_js.replace("export function ", "function ")
+        + "\nconst handleStepKey = (() => {\n"
+        + keyables_js.replace("export function ", "function ")
+        + "\nreturn handleStepKey;\n})();\n"
+        + VIEWER_JS
+    )
     script_type = ""
     modules = []
     if any(e.get("payload", {}).get("component_type") == "playwright-controls" for e in bundle.get("events", [])):
@@ -355,6 +382,17 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
     if has_whiteboard:
         modules.append(
             (Path(__file__).parent / "static" / "whiteboard.js").read_text(encoding="utf-8")
+        )
+    if has_step_playback:
+        playback_js = (static_dir / "step_playback.js").read_text(encoding="utf-8")
+        # Keep renderer helpers private: other stock modules use names such as
+        # clamp, finite and label too. Their ESM scopes must not be flattened.
+        modules.append(
+            "const mountStepPlayback = (() => {\n"
+            + playback_js.replace("export function ", "function ").replace(
+                "export { normalizeProps as normalizeStepPlaybackProps };", ""
+            )
+            + "\nreturn mountStepPlayback;\n})();"
         )
     has_equation = any(event.get("kind") == "equation" for event in bundle.get("events", []))
     has_uml = any(event.get("kind") == "uml" for event in bundle.get("events", []))
@@ -404,7 +442,7 @@ def _viewer_html(title: str, bundle: dict[str, Any]) -> str:
 <main id="stage" tabindex="0" aria-label="Lecture stage"></main>
 <aside id="variable-panel" hidden aria-label="Workspace variables"></aside>
 </div>
-<p id="help" class="muted">Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via <code>?step=N</code>. Reduced-motion respected. Plots/components show recorded fallbacks.</p>
+<p id="help" class="muted">Keyboard: ←/→ step, ↑ play, ↓ pause, Space toggle, Home/End first/last. Step is deep-linked via <code>?step=N</code>. Reduced-motion respected. Unsupported plots/components show recorded fallbacks.</p>
 <script id="lecture-data" type="application/json">{embedded}</script>
 <script{script_type}>{viewer}</script>
 </body>

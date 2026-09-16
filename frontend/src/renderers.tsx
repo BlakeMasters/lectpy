@@ -12,9 +12,12 @@ import { Whiteboard } from "./Whiteboard";
 import { texToMathML } from "../../src/lecture/static/equation.js";
 import { umlDescription, umlSvg } from "../../src/lecture/static/uml.js";
 
-type P = { event: LectureEvent };
+type P = { event: LectureEvent; active?: boolean };
 const BrowserWindow = lazy(() => import("./BrowserWindow"));
 const Automation = lazy(() => import("./Automation"));
+const StepPlayback = lazy(() =>
+  import("./StepPlayback").then(({ StepPlayback: Component }) => ({ default: Component })),
+);
 
 function payload(event: LectureEvent): Record<string, unknown> {
   return event.payload ?? {};
@@ -167,12 +170,19 @@ export function TerminalBlock({ event }: P) {
   );
 }
 
-export function ComponentBlock({ event }: P) {
+export function ComponentBlock({ event, active = false }: P) {
   const p = payload(event);
   if (p["component_type"] === "playwright-controls") {
     return <Suspense fallback={<p role="status">Loading browser controls…</p>}><Automation event={event} /></Suspense>;
   }
   if (p["component_type"] === "whiteboard") return <Whiteboard event={event} />;
+  if (p["component_type"] === "step-playback") {
+    return (
+      <Suspense fallback={<div className="step-playback-host">Loading step playback…</div>}>
+        <StepPlayback event={event} active={active} />
+      </Suspense>
+    );
+  }
   if (p["component_type"] === "browser-window") {
     return (
       <Suspense fallback={<p role="status">Loading reference-window controls…</p>}>

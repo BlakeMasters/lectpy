@@ -327,16 +327,21 @@ export function OutputView({
         const section = sectionPresentation(e);
         const previousSection = sectionPresentation(outputs[index - 1]).name;
         const showSectionMarker = Boolean(section.name && section.name !== previousSection);
+        const rawKeyables = e.payload?.["step_keyables"];
+        const keyables = Array.isArray(rawKeyables) && rawKeyables.length > 0
+          ? JSON.stringify(rawKeyables)
+          : undefined;
         return (
           <article
             key={`${e.seq}`}
             className={`lecture-output ${section.className}${current ? " lecture-output-current" : ""}`}
             data-output-seq={e.seq}
             data-section={section.name || undefined}
+            data-step-keyables={keyables}
             aria-current={current ? "step" : undefined}
           >
             {showSectionMarker ? <div className="section-marker" aria-hidden="true">{section.name}</div> : null}
-            <C event={e} />
+            <C event={e} active={current} />
           </article>
         );
       })}

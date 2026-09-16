@@ -10,14 +10,15 @@ from __future__ import annotations
 import functools
 import inspect as pyinspect
 import json
+import math
 import re
 import subprocess
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from .context import require_current
+from .context import MAX_STEP_KEYABLES, require_current
 from .events import Event, SourceLocation
 from .options import PresentationStyle, WhiteboardOptions
 from .sanitize import markdown_to_html
@@ -34,6 +35,8 @@ __all__ = [
     "video",
     "link",
     "plot",
+    "step_playback",
+    "step_keyables",
     "equation",
     "uml",
     "inspect_value",
@@ -152,6 +155,385 @@ def plot(spec: dict[str, Any]) -> Event:
     if not isinstance(spec, dict):
         raise TypeError("plot(spec) expects a dict (Vega/Vega-Lite spec)")
     return _emit("plot", {"spec": spec})
+
+
+_STEP_PLAYBACK_MAX_SERIES = 6
+_STEP_PLAYBACK_MAX_PANELS = 3
+_STEP_PLAYBACK_MAX_STEPS = 400
+_STEP_PLAYBACK_MAX_LABEL = 160
+_STEP_KEYABLE_MAX_KEY = 64
+_STEP_KEYABLE_ACTIONS = {
+    "step.first",
+    "step.previous",
+    "step.next",
+    "step.over",
+    "step.last",
+    "playback.play",
+    "playback.pause",
+    "playback.toggle",
+    "playback.replay",
+}
+_STEP_KEYABLE_ALIASES = {
+    "first": "step.first",
+    "previous": "step.previous",
+    "back": "step.previous",
+    "next": "step.next",
+    "forward": "step.next",
+    "over": "step.over",
+    "last": "step.last",
+    "play": "playback.play",
+    "pause": "playback.pause",
+    "toggle": "playback.toggle",
+    "replay": "playback.replay",
+}
+
+
+def _step_playback_label(value: Any, fallback: str) -> str:
+    if value is None:
+        return fallback
+    if not isinstance(value, str):
+        raise TypeError("step_playback labels must be strings")
+    return value[:_STEP_PLAYBACK_MAX_LABEL]
+
+
+def _step_keyable_key(value: Any) -> str:
+    if not isinstance(value, str) or not value.strip() or len(value) > _STEP_KEYABLE_MAX_KEY:
+        raise ValueError(
+            "step keyable keys must be non-empty strings of at most "
+            f"{_STEP_KEYABLE_MAX_KEY} characters"
+        )
+    parts = value.strip().split("+")
+    key = parts.pop()
+    if not key:
+        raise ValueError("step keyable keys must end with a key name")
+    if key == "Spacebar":
+        key = "Space"
+    if len(key) == 1 and key.isascii() and key.isalpha():
+        key = key.lower()
+    aliases = {
+        "ctrl": "Ctrl", "control": "Ctrl", "alt": "Alt", "option": "Alt",
+        "shift": "Shift", "cmd": "Meta", "command": "Meta", "meta": "Meta",
+    }
+    modifiers: set[str] = set()
+    for part in parts:
+        modifier = aliases.get(part.lower())
+        if modifier is None or modifier in modifiers:
+            raise ValueError(f"invalid or duplicate step keyable modifier: {part}")
+        modifiers.add(modifier)
+    return "+".join([mod for mod in ("Ctrl", "Alt", "Shift", "Meta") if mod in modifiers] + [key])
+
+
+def _step_keyable_action(value: Any) -> str:
+    if not isinstance(value, str):
+        raise TypeError("step keyable actions must be strings")
+    action = value.strip().lower().replace("_", ".")
+    action = _STEP_KEYABLE_ALIASES.get(action, action)
+    if action not in _STEP_KEYABLE_ACTIONS:
+        allowed = ", ".join(sorted(_STEP_KEYABLE_ACTIONS))
+        raise ValueError(f"unsupported step keyable action {value!r}; use one of {allowed}")
+    return action
+
+
+def _normalize_step_keyables(
+    bindings: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    *,
+    default_target: str | None = None,
+) -> list[dict[str, Any]]:
+    if isinstance(bindings, Mapping):
+        raw_items: list[tuple[Any, Any]] = list(bindings.items())
+    elif isinstance(bindings, (str, bytes)) or not isinstance(bindings, Sequence):
+        raise TypeError(
+            "step keyables must be a mapping of key to action or a sequence of mappings"
+        )
+    else:
+        raw_items = []
+        for entry in bindings:
+            if not isinstance(entry, Mapping):
+                raise TypeError("step keyable entries must be mappings")
+            raw_items.append((entry.get("key"), entry))
+    if len(raw_items) > MAX_STEP_KEYABLES:
+        raise ValueError(f"step_keyables supports at most {MAX_STEP_KEYABLES} bindings")
+
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw_key, raw_value in raw_items:
+        key = _step_keyable_key(raw_key)
+        if key in seen:
+            raise ValueError(f"duplicate step keyable key: {key}")
+        seen.add(key)
+        if isinstance(raw_value, str):
+            action = _step_keyable_action(raw_value)
+            config: Mapping[str, Any] = {}
+        elif isinstance(raw_value, Mapping):
+            action = _step_keyable_action(raw_value.get("action"))
+            config = raw_value
+        else:
+            raise TypeError("step keyable values must be action strings or mappings")
+        target = config.get("target", default_target)
+        if target is not None:
+            target = _output_id(target)
+        label = config.get("label")
+        if label is None:
+            label = action.replace(".", " ")
+        label = _step_playback_label(label, action.replace(".", " "))
+        prevent_default = config.get("prevent_default", True)
+        if type(prevent_default) is not bool:
+            raise TypeError("step keyable prevent_default must be a bool")
+        item: dict[str, Any] = {
+            "key": key,
+            "action": action,
+            "label": label,
+            "prevent_default": prevent_default,
+        }
+        if target is not None:
+            item["target"] = target
+        normalized.append(item)
+    return normalized
+
+
+@contextmanager
+def step_keyables(
+    bindings: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+) -> Iterator[None]:
+    """Scope safe keyboard actions to lecture events emitted in this block.
+
+    Keys may map to aliases such as ``"playback.pause"``/``"pause"`` or to
+    mappings with ``action``, ``target`` and ``label`` fields. The viewer only
+    executes the finite step/playback action vocabulary; it never evaluates
+    arbitrary Python or JavaScript from a key binding.
+    """
+    ctx = require_current()
+    with ctx.step_keyable_scope(_normalize_step_keyables(bindings)):
+        yield
+
+
+def _step_playback_number(value: Any, field: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"step_playback {field} values must be finite numbers")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"step_playback {field} values must be finite numbers")
+    return number
+
+
+def _step_playback_sequence(value: Any, field: str) -> Sequence[Any]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise TypeError(f"step_playback {field} must be a sequence")
+    return value
+
+
+def _step_playback_trajectory_series(entry: Any, index: int) -> dict[str, Any]:
+    if not isinstance(entry, Mapping):
+        raise TypeError("step_playback trajectory series must be mappings")
+    raw_points = _step_playback_sequence(entry.get("points"), "trajectory points")
+    if not 2 <= len(raw_points) <= _STEP_PLAYBACK_MAX_STEPS + 1:
+        raise ValueError(
+            f"step_playback trajectory points must contain 2–{_STEP_PLAYBACK_MAX_STEPS + 1} samples"
+        )
+    points: list[dict[str, float]] = []
+    for point_index, point in enumerate(raw_points):
+        if isinstance(point, Mapping):
+            x, y = point.get("x"), point.get("y")
+        elif (
+            isinstance(point, Sequence)
+            and not isinstance(point, (str, bytes))
+            and len(point) == 2
+        ):
+            x, y = point[0], point[1]
+        else:
+            raise TypeError(f"step_playback trajectory point {point_index} must contain x and y")
+        points.append(
+            {
+                "x": _step_playback_number(x, "trajectory x"),
+                "y": _step_playback_number(y, "trajectory y"),
+            }
+        )
+    series_id = _step_playback_label(entry.get("id"), f"trajectory-{index + 1}")
+    return {
+        "id": series_id,
+        "label": _step_playback_label(entry.get("label"), series_id),
+        "points": points,
+    }
+
+
+def _step_playback_response_series(entry: Any, index: int, step_count: int) -> dict[str, Any]:
+    if not isinstance(entry, Mapping):
+        raise TypeError("step_playback response series must be mappings")
+    raw_values = _step_playback_sequence(entry.get("values"), "response values")
+    if len(raw_values) != step_count + 1:
+        raise ValueError(
+            "step_playback response values must have exactly step_count + 1 samples"
+        )
+    series_id = _step_playback_label(entry.get("id"), f"response-{index + 1}")
+    return {
+        "id": series_id,
+        "label": _step_playback_label(entry.get("label"), series_id),
+        "values": [_step_playback_number(value, "response") for value in raw_values],
+    }
+
+
+def step_playback(
+    trajectory: Mapping[str, Any],
+    responses: Sequence[Mapping[str, Any]],
+    *,
+    title: str = "Step playback",
+    alt: str = "",
+    output_id: str | None = None,
+    autoplay_on_step: bool = False,
+    restart_on_enter: bool = False,
+    pause_on_leave: bool = True,
+    keyables: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
+) -> Event:
+    """Emit a bounded, replay-local trajectory and response playback figure.
+
+    ``trajectory`` contains ``series`` with ``points`` and may include
+    ``contours`` (numeric levels) and a ``target`` point. ``responses`` is a
+    sequence of panels; each panel contains ``series`` with ``values`` and
+    optional ``references`` of ``{value, label, tone}``. All series share the
+    inferred step count, and the browser never resumes Python to animate them.
+
+    ``autoplay_on_step`` starts the figure when its output becomes current in
+    Presenter/Inspector. ``restart_on_enter`` resets it before that start, and
+    ``pause_on_leave`` pauses it when the lecture moves to another step. The
+    optional ``keyables`` mapping attaches safe keyboard actions to this output;
+    when omitted, Up plays, Down pauses, and Space toggles the playback.
+    """
+    for field, value in (
+        ("autoplay_on_step", autoplay_on_step),
+        ("restart_on_enter", restart_on_enter),
+        ("pause_on_leave", pause_on_leave),
+    ):
+        if type(value) is not bool:
+            raise TypeError(f"step_playback {field} must be a bool")
+    if not isinstance(trajectory, Mapping):
+        raise TypeError("step_playback trajectory must be a mapping")
+    raw_trajectory_series = _step_playback_sequence(
+        trajectory.get("series"), "trajectory series"
+    )
+    if not 1 <= len(raw_trajectory_series) <= _STEP_PLAYBACK_MAX_SERIES:
+        raise ValueError(
+            f"step_playback supports 1–{_STEP_PLAYBACK_MAX_SERIES} trajectory series"
+        )
+    trajectory_series = [
+        _step_playback_trajectory_series(entry, index)
+        for index, entry in enumerate(raw_trajectory_series)
+    ]
+    point_counts = {len(series["points"]) for series in trajectory_series}
+    if len(point_counts) != 1:
+        raise ValueError("step_playback trajectory series must have the same sample count")
+    step_count = next(iter(point_counts)) - 1
+    if not 1 <= step_count <= _STEP_PLAYBACK_MAX_STEPS:
+        raise ValueError(
+            f"step_playback step count must be between 1 and {_STEP_PLAYBACK_MAX_STEPS}"
+        )
+
+    if isinstance(responses, (str, bytes)) or not isinstance(responses, Sequence):
+        raise TypeError("step_playback responses must be a sequence")
+    if not 1 <= len(responses) <= _STEP_PLAYBACK_MAX_PANELS:
+        raise ValueError(
+            f"step_playback supports 1–{_STEP_PLAYBACK_MAX_PANELS} response panels"
+        )
+    normalized_responses: list[dict[str, Any]] = []
+    for panel_index, panel in enumerate(responses):
+        if not isinstance(panel, Mapping):
+            raise TypeError("step_playback response panels must be mappings")
+        raw_series = _step_playback_sequence(panel.get("series"), "response series")
+        if not 1 <= len(raw_series) <= _STEP_PLAYBACK_MAX_SERIES:
+            raise ValueError(
+                f"step_playback response panels support 1–{_STEP_PLAYBACK_MAX_SERIES} series"
+            )
+        series = [
+            _step_playback_response_series(entry, index, step_count)
+            for index, entry in enumerate(raw_series)
+        ]
+        raw_references = panel.get("references", ())
+        if raw_references is None:
+            raw_references = ()
+        raw_references = _step_playback_sequence(raw_references, "references")
+        references: list[dict[str, Any]] = []
+        for reference in raw_references[: _STEP_PLAYBACK_MAX_SERIES]:
+            if not isinstance(reference, Mapping):
+                raise TypeError("step_playback references must be mappings")
+            tone = reference.get("tone", "muted")
+            if tone not in {"muted", *[f"series-{i}" for i in range(1, 7)]}:
+                raise ValueError("step_playback reference tone must be muted or series-1…series-6")
+            references.append(
+                {
+                    "value": _step_playback_number(reference.get("value"), "reference"),
+                    "label": _step_playback_label(reference.get("label"), "reference"),
+                    "tone": tone,
+                }
+            )
+        normalized_responses.append(
+            {
+                "id": _step_playback_label(panel.get("id"), f"panel-{panel_index + 1}"),
+                "title": _step_playback_label(panel.get("title"), f"Response {panel_index + 1}"),
+                "y_label": _step_playback_label(panel.get("y_label"), "value"),
+                "series": series,
+                "references": references,
+            }
+        )
+
+    raw_contours = trajectory.get("contours", ())
+    if raw_contours is None:
+        raw_contours = ()
+    raw_contours = _step_playback_sequence(raw_contours, "contours")
+    contours: list[dict[str, Any]] = []
+    for contour in raw_contours[:12]:
+        if isinstance(contour, Mapping):
+            level = contour.get("level")
+            dashed = bool(contour.get("dashed", False))
+        else:
+            level = contour
+            dashed = False
+        contours.append({"level": _step_playback_number(level, "contour"), "dashed": dashed})
+
+    target = trajectory.get("target")
+    normalized_target = None
+    if target is not None:
+        if not isinstance(target, Mapping):
+            raise TypeError("step_playback target must be a mapping")
+        normalized_target = {
+            "x": _step_playback_number(target.get("x"), "target x"),
+            "y": _step_playback_number(target.get("y"), "target y"),
+            "label": _step_playback_label(target.get("label"), "equilibrium"),
+        }
+
+    normalized_output_id = _output_id(output_id)
+    if keyables is None:
+        keyables = {
+            "ArrowUp": {"action": "playback.play", "label": "Play playback"},
+            "ArrowDown": {"action": "playback.pause", "label": "Pause playback"},
+            "Space": {"action": "playback.toggle", "label": "Toggle playback"},
+        }
+    normalized_keyables = _normalize_step_keyables(
+        keyables,
+        default_target=normalized_output_id,
+    )
+
+    return component(
+        "step-playback",
+        props={
+            "title": _step_playback_label(title, "Step playback"),
+            "alt": _step_playback_label(alt, "Synchronized step playback figure."),
+            "output_id": normalized_output_id,
+            "step_trigger": {
+                "autoplay_on_step": autoplay_on_step,
+                "restart_on_enter": restart_on_enter,
+                "pause_on_leave": pause_on_leave,
+            },
+            "step_count": step_count,
+            "trajectory": {
+                "x_label": _step_playback_label(trajectory.get("x_label"), "x"),
+                "y_label": _step_playback_label(trajectory.get("y_label"), "y"),
+                "series": trajectory_series,
+                "contours": contours,
+                "target": normalized_target,
+            },
+            "responses": normalized_responses,
+        },
+        keyables=normalized_keyables,
+    )
 
 
 def equation(
@@ -375,21 +757,23 @@ def component(
     component_type: str,
     props: dict[str, Any] | None = None,
     permissions: dict[str, Any] | None = None,
+    *,
+    keyables: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
 ) -> Event:
     """Stock or custom interactive component.
 
     Static export degrades to a recorded fallback (see export_static); live
     dispatch needs a broker ComponentService (v0.4+).
     """
-    return _emit(
-        "component",
-        {
-            "component_type": component_type,
-            "props": dict(props or {}),
-            "permissions": dict(permissions or {}),
-            "fallback": "recorded",
-        },
-    )
+    payload: dict[str, Any] = {
+        "component_type": component_type,
+        "props": dict(props or {}),
+        "permissions": dict(permissions or {}),
+        "fallback": "recorded",
+    }
+    if keyables is not None:
+        payload["step_keyables"] = _normalize_step_keyables(keyables)
+    return _emit("component", payload)
 
 
 @contextmanager

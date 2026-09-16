@@ -2,8 +2,11 @@
 
 The built-in presentation primitives keep author data separate from viewer
 markup. Equations retain TeX and render to native MathML; UML retains a small
-structured class/sequence spec and renders to accessible SVG. Both viewers
-ship the same dependency-free renderers, so a static bundle works offline.
+structured class/sequence spec and renders to accessible SVG. Synchronized
+step-playback figures retain bounded samples and mount the same dependency-free
+SVG/JavaScript renderer in both viewers, so a static bundle works offline. Their
+steps can also expose safe, configurable keyables for playback and lecture
+navigation (for example, Up to play, Down to pause, and Shift+Right to advance).
 
 Build the example with the trace provider when you want stepping:
 

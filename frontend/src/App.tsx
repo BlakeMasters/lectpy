@@ -43,6 +43,7 @@ import {
   VideoBlock,
 } from "./renderers";
 import { CommandRegistry, ExecutionRegistry, RendererRegistry } from "./registry";
+import { handleStepKey } from "../../src/lecture/static/step_keyables.js";
 import {
   clampStep,
   browserWindowStateAt,
@@ -215,18 +216,14 @@ export default function App() {
   // Every stepping action available by keyboard (WCAG 2.2 AA target).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (view === "reader") return;
-      const t = e.target as HTMLElement | null;
-      if (t?.closest("input, textarea, select, button, a, [contenteditable=true], [role=slider], .lecture-table, .lecture-code pre")) return;
-      if (["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) e.preventDefault();
-      if (e.key === "ArrowRight") go(idx + 1);
-      else if (e.key === "ArrowLeft") go(idx - 1);
-      else if (e.key === "Home") go(0);
-      else if (e.key === "End") go(steps.length - 1);
+      handleStepKey(e, {
+        root: document, step: steps[idx], reader: view === "reader",
+        index: idx, count: steps.length, navigate: go,
+      });
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [go, idx, steps.length, view]);
+  }, [go, idx, steps, view]);
 
   // Keep the teaching output, rather than the source pane, in the presenter’s
   // reading position after a step transition.
@@ -287,7 +284,7 @@ export default function App() {
   const sourceVisible = Boolean(bundle.source && showSource && view !== "reader");
   const shownIdx = displayIndex(view, idx, steps.length);
   const outputs = visibleOutputs(bundle.events, steps, shownIdx);
-  const activeOutputSeqs = new Set(currentOutputSeqs(bundle.events, steps, shownIdx));
+  const activeOutputSeqs = new Set(view === "reader" ? [] : currentOutputSeqs(bundle.events, steps, shownIdx));
   const inspects = visibleInspects(bundle.events, steps, shownIdx);
   const shellStyle = {
     "--lectpy-body-font": display.bodyFont,
@@ -415,7 +412,7 @@ export default function App() {
         ) : null}
       </div>
       {view === "inspector" && <p className="muted">
-        Keyboard: ←/→ step, Home/End first/last. Step is deep-linked via{" "}
+        Keyboard: ←/→ step, ↑ play, ↓ pause, Space toggle, Home/End first/last. Step is deep-linked via{" "}
         <code>?step=N</code>. Reduced-motion respected.
       </p>}
     </main>

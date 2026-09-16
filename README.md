@@ -34,9 +34,9 @@ to build the configured entrypoint. For a document with no line stepping, use
 ## What you can create
 
 Build traced technical explanations or plain Python documents with text, code,
-bounded tables, local media, pen-aware whiteboards, and user-controlled reference
-browser windows. Both viewers offer Reader, Presenter and Inspector styles. Local
-assets travel with static exports.
+bounded tables, local media, synchronized step-playback figures, pen-aware
+whiteboards, and user-controlled reference browser windows. Both viewers offer
+Reader, Presenter and Inspector styles. Local assets travel with static exports.
 
 ```python
 from lecture import browser_close, browser_open, image, whiteboard

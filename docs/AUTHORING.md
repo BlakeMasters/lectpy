@@ -17,7 +17,8 @@ def main():
 ```
 
 Primitives: `text`, `code`, `table`, `note`, `image`, `video`, `link`, `plot`, `equation`, `uml`, `inspect_value`,
-`clear`, `system_text`, `component`, `whiteboard`, `browser_open`, `browser_close`, `terminal`.
+`clear`, `system_text`, `component`, `step_playback`, `step_keyables`, `whiteboard`,
+`browser_open`, `browser_close`, `terminal`.
 All emit typed events on the
 scoped `ExecutionContext` — never a process-global accumulator.
 
@@ -121,8 +122,104 @@ lecture serve dist/document
 ```
 
 Creation levels: **A** plain Python outputs are supported today. **B** stock
-interactive components and **C** custom component plugins are being developed;
-the current `component()` API records a descriptor and a static placeholder.
+interactive components include whiteboards, reference windows, and
+`step_playback()`. **C** custom component plugins remain in development; an
+unrecognized `component()` type records a descriptor and a static placeholder.
+
+## Synchronized step playback
+
+`step_playback()` records bounded, precomputed samples for a trajectory and one
+or more response panels. The static and React viewers mount the same
+dependency-free SVG/JavaScript renderer, so the Play button and scrubber work
+offline without resuming Python execution:
+
+```python
+from lecture import step_playback
+
+step_playback(
+    {
+        "x_label": "w₁",
+        "y_label": "w₂",
+        "series": [{"label": "path", "points": [{"x": 0.2, "y": 0.5}, {"x": 1.0, "y": 1.1}]}],
+        "target": {"x": 1.0, "y": 1.1, "label": "equilibrium"},
+    },
+    [{
+        "title": "Activation",
+        "y_label": "Δhₜ − h₀",
+        "series": [{"label": "activation", "values": [0.0, 0.2]}],
+        "references": [{"value": 0.2, "label": "equilibrium", "tone": "series-1"}],
+    }],
+    title="Damped adaptation",
+)
+```
+
+All trajectory series must share a sample count, and every response series
+must provide the same number of samples. The inferred step count is bounded to
+400 intervals (401 samples) per playback. Optional contour levels draw curves
+of `x * y = level`; the sample data determines the axis ranges.
+See [step_playback.py](../examples/step_playback.py)
+for a complete two-panel example. `autoplay_on_step=True` starts the figure
+when its output becomes current in Presenter or Inspector; `restart_on_enter`
+and `pause_on_leave` control what happens as the lecture cursor enters or leaves
+that output. Reader view waits for an explicit Play action. Playback state is
+preserved while the output remains visible; clearing or hiding it disposes the
+figure, and showing it again creates a fresh playback.
+
+## Step keyables
+
+Outputs can carry a bounded set of safe keyboard actions. The shell recognizes
+the built-in step actions (`step.first`, `step.previous`, `step.next`,
+`step.over`, `step.last`) and playback actions (`playback.play`,
+`playback.pause`, `playback.toggle`, `playback.replay`). It never evaluates
+arbitrary Python or JavaScript from a key binding. Key strings may include
+modifiers such as `Shift+ArrowRight`; `Space` is accepted as the spacebar.
+
+`step_playback()` provides convenient defaults—ArrowUp plays, ArrowDown pauses,
+and Space toggles—and accepts a custom mapping when a different transport is
+needed:
+
+```python
+step_playback(
+    trajectory,
+    responses,
+    output_id="damped-adaptation",
+    autoplay_on_step=True,
+    restart_on_enter=True,
+    pause_on_leave=True,
+    keyables={
+        "ArrowUp": "playback.play",
+        "ArrowDown": "playback.pause",
+        "Space": "playback.toggle",
+        "Shift+ArrowRight": "step.next",
+    },
+)
+```
+
+For other outputs, `step_keyables()` scopes bindings to events emitted in a
+block. Nested scopes merge, and an explicit event binding wins for a duplicate
+key:
+
+```python
+from lecture import step_keyables, text
+
+with step_keyables({
+    "ArrowDown": {"action": "playback.pause", "target": "damped-adaptation"},
+    "Shift+ArrowRight": {"action": "step.next", "label": "Advance lecture"},
+}):
+    text("Discuss the figure above, or pause it with Down.")
+```
+
+In Presenter or Inspector, the ordinary ArrowRight/ArrowLeft keys still move
+the lecture unless a current step explicitly binds them. Playback keyables act
+on the current figure without advancing the lecture, so ArrowDown can pause a
+running figure while ArrowRight advances to the next teaching step.
+There are at most 12 merged bindings per event. Use `keyables={}` to omit a
+playback's default keys. Modifier aliases are normalized, and unknown or duplicate
+modifiers are rejected. Native buttons, text fields, sliders, and editable
+content keep their own keys; a focused playback button still accepts Up/Down,
+while Space activates that button normally. With several figures, a focused
+output takes priority, and `target` selects a specific output ID explicitly.
+`step.over` currently matches the shell's Step over button (one recorded step).
 
 ## Code and tabular results
 
